@@ -1,0 +1,50 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/api";
+
+type Status = "checking" | "online" | "offline";
+
+const presentation: Record<Status, { label: string; dot: string }> = {
+  checking: { label: "Checking backend", dot: "bg-zinc-400" },
+  online: { label: "Backend online", dot: "bg-emerald-500" },
+  offline: { label: "Backend offline", dot: "bg-red-500" },
+};
+
+export default function BackendStatus() {
+  const [status, setStatus] = useState<Status>("checking");
+
+  useEffect(() => {
+    let active = true;
+
+    const check = async () => {
+      try {
+        const response = await fetch(apiUrl("/api/ping"), { cache: "no-store" });
+        if (active) {
+          setStatus(response.ok ? "online" : "offline");
+        }
+      } catch {
+        if (active) {
+          setStatus("offline");
+        }
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const { label, dot } = presentation[status];
+
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+      <span className={`h-2 w-2 rounded-full ${dot}`} />
+      {label}
+    </div>
+  );
+}
