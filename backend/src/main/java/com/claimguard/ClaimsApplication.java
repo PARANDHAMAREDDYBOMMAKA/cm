@@ -14,20 +14,21 @@ import java.util.Map;
 public class ClaimsApplication {
 
     public static void main(String[] args) {
-        Map<String, String> environment = loadEnvironment();
         new SpringApplicationBuilder(ClaimsApplication.class)
-                .properties(resolveProperties(environment))
+                .properties(resolveProperties(loadDotenv()))
                 .run(args);
     }
 
-    private static Map<String, Object> resolveProperties(Map<String, String> environment) {
-        Map<String, Object> properties = new HashMap<>();
-        applyDatasource(properties, environment.get("DATABASE_URL"));
-        String issuerUri = environment.get("OIDC_ISSUER_URI");
+    private static Map<String, Object> resolveProperties(Map<String, String> dotenv) {
+        Map<String, Object> properties = new HashMap<>(dotenv);
+        applyDatasource(properties, lookup(dotenv, "DATABASE_URL"));
+
+        String issuerUri = lookup(dotenv, "OIDC_ISSUER_URI");
         if (issuerUri != null && !issuerUri.isBlank()) {
             properties.put("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri.trim());
         }
-        String exposeTech = environment.get("APP_EXPOSE_TECH");
+
+        String exposeTech = lookup(dotenv, "APP_EXPOSE_TECH");
         if (exposeTech != null && !exposeTech.isBlank()) {
             properties.put("app.expose-tech", exposeTech.trim());
         }
@@ -47,11 +48,16 @@ public class ClaimsApplication {
         properties.put("spring.datasource.password", credentials.length > 1 ? credentials[1] : "");
     }
 
-    private static Map<String, String> loadEnvironment() {
-        Map<String, String> environment = new HashMap<>(System.getenv());
+    private static String lookup(Map<String, String> dotenv, String key) {
+        String fromSystem = System.getenv(key);
+        return fromSystem != null ? fromSystem : dotenv.get(key);
+    }
+
+    private static Map<String, String> loadDotenv() {
+        Map<String, String> values = new HashMap<>();
         Path envFile = Path.of(".env");
         if (!Files.exists(envFile)) {
-            return environment;
+            return values;
         }
         try {
             for (String line : Files.readAllLines(envFile)) {
@@ -63,11 +69,11 @@ public class ClaimsApplication {
                 if (separator <= 0) {
                     continue;
                 }
-                environment.putIfAbsent(entry.substring(0, separator).trim(), unquote(entry.substring(separator + 1).trim()));
+                values.put(entry.substring(0, separator).trim(), unquote(entry.substring(separator + 1).trim()));
             }
         } catch (IOException ignored) {
         }
-        return environment;
+        return values;
     }
 
     private static String unquote(String value) {

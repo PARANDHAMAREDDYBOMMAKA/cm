@@ -5,10 +5,10 @@ import { apiUrl } from "@/lib/api";
 
 type Status = "checking" | "online" | "offline";
 
-const presentation: Record<Status, { label: string; dot: string }> = {
-  checking: { label: "Checking backend", dot: "bg-zinc-400" },
-  online: { label: "Backend online", dot: "bg-emerald-500" },
-  offline: { label: "Backend offline", dot: "bg-red-500" },
+const presentation: Record<Status, { label: string; dot: string; text: string }> = {
+  checking: { label: "Checking", dot: "bg-subtle", text: "text-muted" },
+  online: { label: "Backend online", dot: "bg-success", text: "text-secondary" },
+  offline: { label: "Backend offline", dot: "bg-danger", text: "text-danger" },
 };
 
 export default function BackendStatus() {
@@ -39,11 +39,18 @@ export default function BackendStatus() {
     };
   }, []);
 
-  const { label, dot } = presentation[status];
+  const { label, dot, text } = presentation[status];
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-      <span className={`h-2 w-2 rounded-full ${dot}`} />
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium ${text}`}
+    >
+      <span className="relative flex size-2">
+        {status === "online" && (
+          <span className={`absolute inline-flex size-full animate-ping rounded-full ${dot} opacity-60`} />
+        )}
+        <span className={`relative inline-flex size-2 rounded-full ${dot}`} />
+      </span>
       {label}
     </div>
   );

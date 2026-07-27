@@ -1,18 +1,30 @@
+import { LogOut } from "lucide-react";
 import { auth, isAuthConfigured, signIn, signOut } from "@/lib/auth";
+
+function initials(value: string): string {
+  const base = value.replace(/@.*/, "");
+  const parts = base.split(/[.\s_-]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
+  return letters.join("") || value[0]?.toUpperCase() || "U";
+}
 
 export default async function Topbar() {
   const session = await auth();
   const user = session?.user;
+  const label = user?.email ?? user?.name ?? "";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-8 dark:border-zinc-800 dark:bg-zinc-900">
-      <h1 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Console</h1>
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
+      <span className="text-sm font-medium text-secondary">Console</span>
 
       {user ? (
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-zinc-600 dark:text-zinc-300">
-            {user.email ?? user.name}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+              {initials(label)}
+            </span>
+            <span className="hidden text-sm text-secondary sm:inline">{label}</span>
+          </div>
           <form
             action={async () => {
               "use server";
@@ -21,8 +33,9 @@ export default async function Topbar() {
           >
             <button
               type="submit"
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-secondary transition-colors hover:bg-canvas hover:text-ink"
             >
+              <LogOut className="size-4" />
               Sign out
             </button>
           </form>
@@ -36,13 +49,15 @@ export default async function Topbar() {
         >
           <button
             type="submit"
-            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            className="rounded-lg bg-brand px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover"
           >
             Sign in
           </button>
         </form>
       ) : (
-        <span className="text-xs text-amber-600 dark:text-amber-500">Guest preview</span>
+        <span className="rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning">
+          Guest preview
+        </span>
       )}
     </header>
   );

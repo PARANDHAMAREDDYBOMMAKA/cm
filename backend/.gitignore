@@ -38,3 +38,6 @@ build/
 !.env.example
 
 *.md
+
+### Local storage ###
+storage/

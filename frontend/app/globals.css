@@ -2,20 +2,40 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  color-scheme: light;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
+  --color-canvas: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-border: #e8eaed;
+  --color-border-strong: #d7dbe0;
+  --color-ink: #0c0f14;
+  --color-secondary: #4a5460;
+  --color-muted: #6f7783;
+  --color-subtle: #9aa1ab;
+  --color-brand: #0f7a68;
+  --color-brand-hover: #0b6252;
+  --color-brand-soft: #e7f3f0;
+  --color-success: #16794a;
+  --color-success-soft: #e8f5ee;
+  --color-warning: #b45309;
+  --color-warning-soft: #fbf0e2;
+  --color-danger: #c02626;
+  --color-danger-soft: #fbeaea;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 }
