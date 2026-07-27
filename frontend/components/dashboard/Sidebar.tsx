@@ -21,11 +21,18 @@ type NavItem = {
 
 const items: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
-  { href: "/dashboard/claims", label: "Claims", icon: FileText, enabled: false },
+  { href: "/dashboard/claims", label: "Claims", icon: FileText, enabled: true },
   { href: "/dashboard/review", label: "Review Queue", icon: ShieldAlert, enabled: false },
   { href: "/dashboard/audit", label: "Audit Trail", icon: ScrollText, enabled: false },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, enabled: false },
 ];
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/dashboard") {
+    return pathname === href;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -60,7 +67,7 @@ export default function Sidebar() {
               );
             }
 
-            const active = pathname === href;
+            const active = isActive(pathname, href);
             return (
               <Link
                 key={href}

@@ -33,6 +33,12 @@ public class Claim {
     @Column(nullable = false, length = 64)
     private String reference;
 
+    @Column(name = "claimant_name", length = 255)
+    private String claimantName;
+
+    @Column(name = "note", length = 2000)
+    private String note;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private ClaimStatus status = ClaimStatus.RECEIVED;

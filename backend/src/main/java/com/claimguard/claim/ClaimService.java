@@ -2,11 +2,16 @@ package com.claimguard.claim;
 
 import com.claimguard.claim.dto.ClaimDetailResponse;
 import com.claimguard.claim.dto.ClaimSummaryResponse;
+import com.claimguard.claim.dto.CreateClaimRequest;
 import com.claimguard.claim.dto.DocumentResponse;
+import com.claimguard.claim.dto.UpdateClaimRequest;
 import com.claimguard.storage.StorageService;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -27,11 +32,34 @@ public class ClaimService {
     }
 
     @Transactional
-    public ClaimDetailResponse create(String reference) {
+    public ClaimDetailResponse create(CreateClaimRequest request) {
         Claim claim = new Claim();
-        claim.setReference(hasText(reference) ? reference.trim() : generateReference());
+        claim.setReference(hasText(request.reference()) ? request.reference().trim() : generateReference());
+        claim.setClaimantName(trimToNull(request.claimantName()));
+        claim.setNote(trimToNull(request.note()));
         claim.setStatus(ClaimStatus.RECEIVED);
         return detail(claims.save(claim));
+    }
+
+    @Transactional
+    public ClaimDetailResponse update(UUID id, UpdateClaimRequest request) {
+        Claim claim = require(id);
+        if (hasText(request.reference())) {
+            claim.setReference(request.reference().trim());
+        }
+        claim.setClaimantName(trimToNull(request.claimantName()));
+        claim.setNote(trimToNull(request.note()));
+        if (hasText(request.status())) {
+            claim.setStatus(parseStatus(request.status()));
+        }
+        return detail(claims.save(claim));
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        Claim claim = require(id);
+        claim.getDocuments().forEach(document -> storage.delete(document.getStorageKey()));
+        claims.delete(claim);
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +87,29 @@ public class ClaimService {
         return document(documents.save(document));
     }
 
+    @Transactional
+    public void deleteDocument(UUID claimId, UUID documentId) {
+        ClaimDocument document = documents.findById(documentId)
+                .filter(candidate -> candidate.getClaim().getId().equals(claimId))
+                .orElseThrow(() -> new ClaimNotFoundException(documentId));
+        storage.delete(document.getStorageKey());
+        documents.delete(document);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentContent openDocument(UUID claimId, UUID documentId) {
+        ClaimDocument document = documents.findById(documentId)
+                .filter(candidate -> candidate.getClaim().getId().equals(claimId))
+                .orElseThrow(() -> new ClaimNotFoundException(documentId));
+        StorageService.RetrievedObject object = storage.retrieve(document.getStorageKey());
+        String contentType = document.getContentType() != null ? document.getContentType() : object.contentType();
+        return new DocumentContent(
+                new InputStreamResource(object.content()),
+                contentType,
+                document.getSizeBytes(),
+                document.getOriginalFilename());
+    }
+
     private StorageService.StoredObject write(String key, MultipartFile file) {
         try {
             return storage.store(key, file.getInputStream(), file.getSize(), file.getContentType());
@@ -69,6 +120,14 @@ public class ClaimService {
 
     private Claim require(UUID id) {
         return claims.findById(id).orElseThrow(() -> new ClaimNotFoundException(id));
+    }
+
+    private static ClaimStatus parseStatus(String value) {
+        try {
+            return ClaimStatus.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + value);
+        }
     }
 
     private static String generateReference() {
@@ -87,10 +146,15 @@ public class ClaimService {
         return value != null && !value.isBlank();
     }
 
+    private static String trimToNull(String value) {
+        return hasText(value) ? value.trim() : null;
+    }
+
     private static ClaimSummaryResponse summary(Claim claim) {
         return new ClaimSummaryResponse(
                 claim.getId(),
                 claim.getReference(),
+                claim.getClaimantName(),
                 claim.getStatus().name(),
                 claim.getDocuments().size(),
                 claim.getCreatedAt());
@@ -101,6 +165,8 @@ public class ClaimService {
         return new ClaimDetailResponse(
                 claim.getId(),
                 claim.getReference(),
+                claim.getClaimantName(),
+                claim.getNote(),
                 claim.getStatus().name(),
                 claim.getCreatedAt(),
                 claim.getUpdatedAt(),
@@ -114,5 +180,8 @@ public class ClaimService {
                 document.getContentType(),
                 document.getSizeBytes(),
                 document.getCreatedAt());
+    }
+
+    public record DocumentContent(InputStreamResource resource, String contentType, long size, String filename) {
     }
 }
