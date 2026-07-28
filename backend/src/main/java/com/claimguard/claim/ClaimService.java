@@ -5,7 +5,12 @@ import com.claimguard.claim.dto.ClaimSummaryResponse;
 import com.claimguard.claim.dto.CreateClaimRequest;
 import com.claimguard.claim.dto.DocumentResponse;
 import com.claimguard.claim.dto.UpdateClaimRequest;
+import com.claimguard.extraction.DocumentExtraction;
+import com.claimguard.extraction.DocumentExtractionRepository;
+import com.claimguard.extraction.DocumentUploadedEvent;
+import com.claimguard.extraction.ExtractionMapper;
 import com.claimguard.storage.StorageService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,19 +21,30 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ClaimService {
 
     private final ClaimRepository claims;
     private final ClaimDocumentRepository documents;
+    private final DocumentExtractionRepository extractions;
     private final StorageService storage;
+    private final ApplicationEventPublisher events;
 
-    public ClaimService(ClaimRepository claims, ClaimDocumentRepository documents, StorageService storage) {
+    public ClaimService(ClaimRepository claims,
+            ClaimDocumentRepository documents,
+            DocumentExtractionRepository extractions,
+            StorageService storage,
+            ApplicationEventPublisher events) {
         this.claims = claims;
         this.documents = documents;
+        this.extractions = extractions;
         this.storage = storage;
+        this.events = events;
     }
 
     @Transactional
@@ -84,7 +100,10 @@ public class ClaimService {
         document.setContentType(file.getContentType());
         document.setSizeBytes(stored.size());
         document.setStorageKey(stored.key());
-        return document(documents.save(document));
+
+        ClaimDocument saved = documents.save(document);
+        events.publishEvent(new DocumentUploadedEvent(saved.getId()));
+        return document(saved, null);
     }
 
     @Transactional
@@ -160,8 +179,11 @@ public class ClaimService {
                 claim.getCreatedAt());
     }
 
-    private static ClaimDetailResponse detail(Claim claim) {
-        List<DocumentResponse> docs = claim.getDocuments().stream().map(ClaimService::document).toList();
+    private ClaimDetailResponse detail(Claim claim) {
+        Map<UUID, DocumentExtraction> byDocument = extractionsFor(claim);
+        List<DocumentResponse> docs = claim.getDocuments().stream()
+                .map(document -> document(document, byDocument.get(document.getId())))
+                .toList();
         return new ClaimDetailResponse(
                 claim.getId(),
                 claim.getReference(),
@@ -173,13 +195,25 @@ public class ClaimService {
                 docs);
     }
 
-    private static DocumentResponse document(ClaimDocument document) {
+    private Map<UUID, DocumentExtraction> extractionsFor(Claim claim) {
+        List<UUID> documentIds = claim.getDocuments().stream().map(ClaimDocument::getId).toList();
+        if (documentIds.isEmpty()) {
+            return Map.of();
+        }
+        return extractions.findByDocumentIdIn(documentIds).stream()
+                .collect(Collectors.toMap(
+                        extraction -> extraction.getDocument().getId(),
+                        Function.identity()));
+    }
+
+    private static DocumentResponse document(ClaimDocument document, DocumentExtraction extraction) {
         return new DocumentResponse(
                 document.getId(),
                 document.getOriginalFilename(),
                 document.getContentType(),
                 document.getSizeBytes(),
-                document.getCreatedAt());
+                document.getCreatedAt(),
+                ExtractionMapper.toResponse(extraction));
     }
 
     public record DocumentContent(InputStreamResource resource, String contentType, long size, String filename) {

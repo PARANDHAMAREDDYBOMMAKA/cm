@@ -1,5 +1,7 @@
 package com.claimguard.claim.dto;
 
+import com.claimguard.extraction.dto.ExtractionResponse;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -8,5 +10,6 @@ public record DocumentResponse(
         String filename,
         String contentType,
         long sizeBytes,
-        Instant createdAt) {
+        Instant createdAt,
+        ExtractionResponse extraction) {
 }

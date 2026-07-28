@@ -7,6 +7,9 @@ import UploadPanel from "@/components/claims/UploadPanel";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
 import DeleteClaimButton from "@/components/claims/DeleteClaimButton";
 import DeleteDocumentButton from "@/components/claims/DeleteDocumentButton";
+import ExtractionPanel from "@/components/claims/ExtractionPanel";
+import AutoRefresh from "@/components/claims/AutoRefresh";
+import { isRunning, type Extraction } from "@/lib/extraction";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +19,7 @@ type DocumentItem = {
   contentType: string | null;
   sizeBytes: number;
   createdAt: string;
+  extraction: Extraction | null;
 };
 
 type ClaimDetail = {
@@ -32,6 +36,8 @@ type ClaimDetail = {
 const statusStyles: Record<string, string> = {
   RECEIVED: "bg-brand-soft text-brand",
   PROCESSING: "bg-warning-soft text-warning",
+  EXTRACTED: "bg-brand-soft text-brand",
+  FAILED: "bg-danger-soft text-danger",
   APPROVED: "bg-success-soft text-success",
   FLAGGED: "bg-danger-soft text-danger",
 };
@@ -62,9 +68,11 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
   }
 
   const claim: ClaimDetail = await response.json();
+  const processing = claim.documents.some((document) => isRunning(document.extraction));
 
   return (
     <div className="animate-in mx-auto max-w-4xl">
+      <AutoRefresh active={processing} />
       <Link
         href="/dashboard/claims"
         className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-ink"
@@ -117,36 +125,43 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
               const contentUrl = proxyUrl(`/api/claims/${claim.id}/documents/${document.id}/content`);
               const isImage = (document.contentType ?? "").startsWith("image/");
               return (
-                <li key={document.id} className="flex items-center gap-3 px-5 py-3">
-                  {isImage ? (
-                    <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      <img
-                        src={contentUrl}
-                        alt={document.filename}
-                        className="size-10 rounded-lg border border-border object-cover"
-                      />
+                <li key={document.id}>
+                  <div className="flex items-center gap-3 px-5 py-3">
+                    {isImage ? (
+                      <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <img
+                          src={contentUrl}
+                          alt={document.filename}
+                          className="size-10 rounded-lg border border-border object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
+                        <FileText className="size-4" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
+                      <p className="text-xs text-subtle">
+                        {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
+                      </p>
+                    </div>
+                    <a
+                      href={contentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
+                    >
+                      <ExternalLink className="size-3.5" />
+                      View
                     </a>
-                  ) : (
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
-                      <FileText className="size-4" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
-                    <p className="text-xs text-subtle">
-                      {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
-                    </p>
+                    <DeleteDocumentButton claimId={claim.id} documentId={document.id} />
                   </div>
-                  <a
-                    href={contentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
-                  >
-                    <ExternalLink className="size-3.5" />
-                    View
-                  </a>
-                  <DeleteDocumentButton claimId={claim.id} documentId={document.id} />
+                  <ExtractionPanel
+                    claimId={claim.id}
+                    documentId={document.id}
+                    extraction={document.extraction}
+                  />
                 </li>
               );
             })}

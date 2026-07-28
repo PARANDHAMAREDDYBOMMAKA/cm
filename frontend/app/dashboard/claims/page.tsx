@@ -17,6 +17,8 @@ type ClaimSummary = {
 const statusStyles: Record<string, string> = {
   RECEIVED: "bg-brand-soft text-brand",
   PROCESSING: "bg-warning-soft text-warning",
+  EXTRACTED: "bg-brand-soft text-brand",
+  FAILED: "bg-danger-soft text-danger",
   APPROVED: "bg-success-soft text-success",
   FLAGGED: "bg-danger-soft text-danger",
 };
