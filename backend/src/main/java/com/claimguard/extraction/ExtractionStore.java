@@ -7,7 +7,9 @@ import com.claimguard.claim.ClaimNotFoundException;
 import com.claimguard.claim.ClaimRepository;
 import com.claimguard.claim.ClaimStatus;
 import com.claimguard.extraction.dto.ExtractionResponse;
+import com.claimguard.fraud.ClaimAssessmentRequestedEvent;
 import com.claimguard.support.Values;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +26,16 @@ public class ExtractionStore {
     private final DocumentExtractionRepository extractions;
     private final ClaimDocumentRepository documents;
     private final ClaimRepository claims;
+    private final ApplicationEventPublisher events;
 
     public ExtractionStore(DocumentExtractionRepository extractions,
             ClaimDocumentRepository documents,
-            ClaimRepository claims) {
+            ClaimRepository claims,
+            ApplicationEventPublisher events) {
         this.extractions = extractions;
         this.documents = documents;
         this.claims = claims;
+        this.events = events;
     }
 
     @Transactional
@@ -88,7 +93,9 @@ public class ExtractionStore {
             extraction.setStatus(ExtractionStatus.COMPLETED);
             extraction.setError(null);
             extractions.save(extraction);
-            applyClaimStatus(extraction.getDocument().getClaim());
+            Claim claim = extraction.getDocument().getClaim();
+            applyClaimStatus(claim);
+            events.publishEvent(new ClaimAssessmentRequestedEvent(claim.getId()));
         });
     }
 

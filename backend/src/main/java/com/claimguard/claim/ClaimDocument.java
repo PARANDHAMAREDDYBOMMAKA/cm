@@ -42,6 +42,15 @@ public class ClaimDocument {
     @Column(name = "storage_key", nullable = false, length = 1024)
     private String storageKey;
 
+    @Column(name = "content_sha256", length = 64)
+    private String contentSha256;
+
+    @Column(name = "perceptual_hash")
+    private Long perceptualHash;
+
+    @Column(name = "device_fingerprint", length = 128)
+    private String deviceFingerprint;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

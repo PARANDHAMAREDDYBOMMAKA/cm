@@ -20,6 +20,10 @@ async function proxy(
   if (contentType) {
     headers.set("content-type", contentType);
   }
+  const fingerprint = request.headers.get("x-device-fingerprint");
+  if (fingerprint) {
+    headers.set("X-Device-Fingerprint", fingerprint);
+  }
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
   const response = await fetch(target, {

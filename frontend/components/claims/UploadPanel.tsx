@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, UploadCloud } from "lucide-react";
 import { proxyUrl } from "@/lib/api";
+import { deviceFingerprint } from "@/lib/fingerprint";
 
 export default function UploadPanel({ claimId }: { claimId: string }) {
   const router = useRouter();
@@ -14,12 +15,13 @@ export default function UploadPanel({ claimId }: { claimId: string }) {
 
   const uploading = progress !== null;
 
-  const uploadOne = async (file: File): Promise<string | null> => {
+  const uploadOne = async (file: File, fingerprint: string | null): Promise<string | null> => {
     const form = new FormData();
     form.append("file", file);
     try {
       const response = await fetch(proxyUrl(`/api/claims/${claimId}/documents`), {
         method: "POST",
+        headers: fingerprint ? { "X-Device-Fingerprint": fingerprint } : undefined,
         body: form,
       });
       if (response.ok) {
@@ -41,9 +43,10 @@ export default function UploadPanel({ claimId }: { claimId: string }) {
     setError(null);
     setProgress({ done: 0, total: files.length });
 
+    const fingerprint = await deviceFingerprint();
     const failures: string[] = [];
     for (const [index, file] of files.entries()) {
-      const failure = await uploadOne(file);
+      const failure = await uploadOne(file, fingerprint);
       if (failure) {
         failures.push(failure);
       }

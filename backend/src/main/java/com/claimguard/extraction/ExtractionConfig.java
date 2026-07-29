@@ -16,22 +16,27 @@ import java.util.Map;
 public class ExtractionConfig {
 
     @Bean
+    PdfRasterizer pdfRasterizer(
+            @Value("${PDF_RENDER_DPI:150}") float dpi,
+            @Value("${PDF_MAX_PAGES:2}") int maxPages,
+            @Value("${PDF_MAX_WIDTH:1600}") int maxWidth,
+            @Value("${PDF_MAX_PIXELS:1800000}") long maxPixels,
+            @Value("${PDF_JPEG_QUALITY:0.72}") float quality) {
+        return new PdfRasterizer(dpi, maxPages, maxWidth, maxPixels, quality);
+    }
+
+    @Bean
     DocumentReader documentReader(Environment environment,
             JsonMapper mapper,
+            PdfRasterizer rasterizer,
             @Value("${CLOUDFLARE_MODEL:@cf/meta/llama-4-scout-17b-16e-instruct}") String cloudflareModel,
             @Value("${CLOUDFLARE_BASE_URL:https://api.cloudflare.com}") String cloudflareBaseUrl,
             @Value("${CLOUDFLARE_MAX_TOKENS:4000}") int cloudflareMaxTokens,
             @Value("${GROQ_MODEL:qwen/qwen3.6-27b}") String groqModel,
             @Value("${GROQ_BASE_URL:https://api.groq.com}") String groqBaseUrl,
             @Value("${GROQ_MAX_TOKENS:4500}") int groqMaxTokens,
-            @Value("${PDF_RENDER_DPI:150}") float pdfDpi,
-            @Value("${PDF_MAX_PAGES:2}") int pdfMaxPages,
-            @Value("${PDF_MAX_WIDTH:1600}") int pdfMaxWidth,
-            @Value("${PDF_MAX_PIXELS:1800000}") long pdfMaxPixels,
-            @Value("${PDF_JPEG_QUALITY:0.72}") float pdfJpegQuality,
             @Value("${READER_TIMEOUT_SECONDS:120}") long timeoutSeconds) {
         Duration timeout = Duration.ofSeconds(timeoutSeconds);
-        PdfRasterizer rasterizer = new PdfRasterizer(pdfDpi, pdfMaxPages, pdfMaxWidth, pdfMaxPixels, pdfJpegQuality);
         List<DocumentReader> readers = new ArrayList<>();
 
         String cloudflareToken = environment.getProperty("CLOUDFLARE_API_TOKEN");

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -64,8 +65,10 @@ public class ClaimController {
 
     @PostMapping("/{id}/documents")
     @ResponseStatus(HttpStatus.CREATED)
-    public DocumentResponse upload(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
-        return service.addDocument(id, file);
+    public DocumentResponse upload(@PathVariable UUID id,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "X-Device-Fingerprint", required = false) String deviceFingerprint) {
+        return service.addDocument(id, file, deviceFingerprint);
     }
 
     @DeleteMapping("/{claimId}/documents/{documentId}")

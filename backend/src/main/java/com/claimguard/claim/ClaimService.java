@@ -9,6 +9,9 @@ import com.claimguard.extraction.DocumentExtraction;
 import com.claimguard.extraction.DocumentExtractionRepository;
 import com.claimguard.extraction.DocumentUploadedEvent;
 import com.claimguard.extraction.ExtractionMapper;
+import com.claimguard.fraud.DocumentIntake;
+import com.claimguard.fraud.RiskLookup;
+import com.claimguard.fraud.dto.RiskResponse;
 import com.claimguard.storage.StorageService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.InputStreamResource;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -33,17 +37,23 @@ public class ClaimService {
     private final ClaimDocumentRepository documents;
     private final DocumentExtractionRepository extractions;
     private final StorageService storage;
+    private final DocumentIntake intake;
+    private final RiskLookup riskLookup;
     private final ApplicationEventPublisher events;
 
     public ClaimService(ClaimRepository claims,
             ClaimDocumentRepository documents,
             DocumentExtractionRepository extractions,
             StorageService storage,
+            DocumentIntake intake,
+            RiskLookup riskLookup,
             ApplicationEventPublisher events) {
         this.claims = claims;
         this.documents = documents;
         this.extractions = extractions;
         this.storage = storage;
+        this.intake = intake;
+        this.riskLookup = riskLookup;
         this.events = events;
     }
 
@@ -80,7 +90,9 @@ public class ClaimService {
 
     @Transactional(readOnly = true)
     public List<ClaimSummaryResponse> list() {
-        return claims.findAllByOrderByCreatedAtDesc().stream().map(ClaimService::summary).toList();
+        List<Claim> all = claims.findAllByOrderByCreatedAtDesc();
+        Map<UUID, RiskResponse> risks = riskLookup.forClaims(all.stream().map(Claim::getId).toList());
+        return all.stream().map(claim -> summary(claim, risks.get(claim.getId()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -89,10 +101,12 @@ public class ClaimService {
     }
 
     @Transactional
-    public DocumentResponse addDocument(UUID claimId, MultipartFile file) {
+    public DocumentResponse addDocument(UUID claimId, MultipartFile file, String deviceFingerprint) {
         Claim claim = require(claimId);
+        byte[] content = read(file);
         String key = "claims/" + claim.getId() + "/" + UUID.randomUUID() + extension(file.getOriginalFilename());
-        StorageService.StoredObject stored = write(key, file);
+        StorageService.StoredObject stored = storage.store(
+                key, new ByteArrayInputStream(content), content.length, file.getContentType());
 
         ClaimDocument document = new ClaimDocument();
         document.setClaim(claim);
@@ -100,8 +114,11 @@ public class ClaimService {
         document.setContentType(file.getContentType());
         document.setSizeBytes(stored.size());
         document.setStorageKey(stored.key());
+        document.setDeviceFingerprint(trimToNull(deviceFingerprint));
+        intake.applyFingerprints(document, content);
 
         ClaimDocument saved = documents.save(document);
+        intake.recordForensics(saved, content);
         events.publishEvent(new DocumentUploadedEvent(saved.getId()));
         return document(saved, null);
     }
@@ -129,9 +146,9 @@ public class ClaimService {
                 document.getOriginalFilename());
     }
 
-    private StorageService.StoredObject write(String key, MultipartFile file) {
+    private static byte[] read(MultipartFile file) {
         try {
-            return storage.store(key, file.getInputStream(), file.getSize(), file.getContentType());
+            return file.getBytes();
         } catch (IOException exception) {
             throw new UncheckedIOException("Failed to read upload", exception);
         }
@@ -169,14 +186,16 @@ public class ClaimService {
         return hasText(value) ? value.trim() : null;
     }
 
-    private static ClaimSummaryResponse summary(Claim claim) {
+    private static ClaimSummaryResponse summary(Claim claim, RiskResponse risk) {
         return new ClaimSummaryResponse(
                 claim.getId(),
                 claim.getReference(),
                 claim.getClaimantName(),
                 claim.getStatus().name(),
                 claim.getDocuments().size(),
-                claim.getCreatedAt());
+                claim.getCreatedAt(),
+                risk != null ? risk.score() : null,
+                risk != null ? risk.band() : null);
     }
 
     private ClaimDetailResponse detail(Claim claim) {
@@ -192,7 +211,8 @@ public class ClaimService {
                 claim.getStatus().name(),
                 claim.getCreatedAt(),
                 claim.getUpdatedAt(),
-                docs);
+                docs,
+                riskLookup.forClaim(claim.getId()));
     }
 
     private Map<UUID, DocumentExtraction> extractionsFor(Claim claim) {

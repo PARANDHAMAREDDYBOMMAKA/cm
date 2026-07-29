@@ -9,5 +9,7 @@ public record ClaimSummaryResponse(
         String claimantName,
         String status,
         int documentCount,
-        Instant createdAt) {
+        Instant createdAt,
+        Integer riskScore,
+        String riskBand) {
 }

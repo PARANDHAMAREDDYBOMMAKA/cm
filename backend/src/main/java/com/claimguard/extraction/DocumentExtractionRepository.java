@@ -14,4 +14,6 @@ public interface DocumentExtractionRepository extends JpaRepository<DocumentExtr
     List<DocumentExtraction> findByDocumentIdIn(Collection<UUID> documentIds);
 
     List<DocumentExtraction> findByStatusIn(Collection<ExtractionStatus> statuses);
+
+    List<DocumentExtraction> findByInvoiceNumberIgnoreCase(String invoiceNumber);
 }

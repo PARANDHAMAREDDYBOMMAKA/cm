@@ -11,3 +11,13 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
   }
   return fetch(`${backendBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
 }
+
+export type LoadFailure = "session" | "backend";
+
+export async function classifyFailure(response: Response): Promise<LoadFailure> {
+  if (response.status === 401 || response.status === 403) {
+    return "session";
+  }
+  const session = await auth();
+  return session?.error ? "session" : "backend";
+}

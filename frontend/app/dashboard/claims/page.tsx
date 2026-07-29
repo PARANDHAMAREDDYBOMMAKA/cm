@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
-import { backendFetch } from "@/lib/backend";
+import { backendFetch, classifyFailure } from "@/lib/backend";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
+import LoadError from "@/components/dashboard/LoadError";
+import { BAND_STYLES, type RiskBand } from "@/lib/risk";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,8 @@ type ClaimSummary = {
   status: string;
   documentCount: number;
   createdAt: string;
+  riskScore: number | null;
+  riskBand: RiskBand | null;
 };
 
 const statusStyles: Record<string, string> = {
@@ -26,7 +30,7 @@ const statusStyles: Record<string, string> = {
 export default async function ClaimsPage() {
   const response = await backendFetch("/api/claims");
   const claims: ClaimSummary[] = response.ok ? await response.json() : [];
-  const failed = !response.ok;
+  const failure = response.ok ? null : await classifyFailure(response);
 
   return (
     <div className="animate-in mx-auto max-w-6xl">
@@ -38,10 +42,8 @@ export default async function ClaimsPage() {
         <ClaimFormDialog mode="create" />
       </div>
 
-      {failed ? (
-        <div className="mt-8 rounded-xl border border-border bg-surface p-6 text-sm text-danger">
-          Could not load claims. Make sure you are signed in and the backend is running.
-        </div>
+      {failure ? (
+        <LoadError kind={failure} what="claims" />
       ) : claims.length === 0 ? (
         <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface px-6 py-16 text-center">
           <span className="flex size-12 items-center justify-center rounded-xl bg-brand-soft text-brand">
@@ -58,6 +60,7 @@ export default async function ClaimsPage() {
                 <th className="px-5 py-3 font-medium">Reference</th>
                 <th className="px-5 py-3 font-medium">Claimant</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Risk</th>
                 <th className="px-5 py-3 font-medium">Documents</th>
                 <th className="px-5 py-3 font-medium">Created</th>
               </tr>
@@ -80,6 +83,17 @@ export default async function ClaimsPage() {
                     >
                       {claim.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    {claim.riskBand ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${BAND_STYLES[claim.riskBand]}`}
+                      >
+                        {claim.riskBand} {claim.riskScore}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-subtle">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3 tabular-nums text-secondary">{claim.documentCount}</td>
                   <td className="px-5 py-3 text-secondary">{new Date(claim.createdAt).toLocaleString()}</td>

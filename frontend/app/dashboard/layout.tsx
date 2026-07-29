@@ -1,5 +1,6 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+import FingerprintBoot from "@/components/dashboard/FingerprintBoot";
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }>) {
   return (
     <div className="flex min-h-screen bg-canvas">
+      <FingerprintBoot />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />

@@ -1,5 +1,7 @@
 package com.claimguard.claim.dto;
 
+import com.claimguard.fraud.dto.RiskResponse;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -12,5 +14,6 @@ public record ClaimDetailResponse(
         String status,
         Instant createdAt,
         Instant updatedAt,
-        List<DocumentResponse> documents) {
+        List<DocumentResponse> documents,
+        RiskResponse risk) {
 }

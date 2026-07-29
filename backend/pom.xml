@@ -30,6 +30,7 @@
 		<java.version>17</java.version>
 		<aws.sdk.version>2.28.0</aws.sdk.version>
 		<pdfbox.version>3.0.5</pdfbox.version>
+		<metadata.extractor.version>2.19.0</metadata.extractor.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -106,6 +107,12 @@
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.drewnoakes</groupId>
+			<artifactId>metadata-extractor</artifactId>
+			<version>${metadata.extractor.version}</version>
 		</dependency>
 
 		<dependency>

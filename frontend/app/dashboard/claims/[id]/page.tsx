@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
-import { backendFetch } from "@/lib/backend";
+import { backendFetch, classifyFailure } from "@/lib/backend";
+import LoadError from "@/components/dashboard/LoadError";
 import { proxyUrl } from "@/lib/api";
 import UploadPanel from "@/components/claims/UploadPanel";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
@@ -10,6 +11,8 @@ import DeleteDocumentButton from "@/components/claims/DeleteDocumentButton";
 import ExtractionPanel from "@/components/claims/ExtractionPanel";
 import AutoRefresh from "@/components/claims/AutoRefresh";
 import { isRunning, type Extraction } from "@/lib/extraction";
+import RiskPanel from "@/components/claims/RiskPanel";
+import type { Risk } from "@/lib/risk";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,7 @@ type ClaimDetail = {
   createdAt: string;
   updatedAt: string;
   documents: DocumentItem[];
+  risk?: Risk | null;
 };
 
 const statusStyles: Record<string, string> = {
@@ -61,8 +65,8 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
   }
   if (!response.ok) {
     return (
-      <div className="mx-auto max-w-4xl rounded-xl border border-border bg-surface p-6 text-sm text-danger">
-        Could not load this claim. Make sure you are signed in.
+      <div className="mx-auto max-w-4xl">
+        <LoadError kind={await classifyFailure(response)} what="this claim" />
       </div>
     );
   }
@@ -114,6 +118,8 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
       {claim.note ? (
         <div className="mt-4 rounded-xl border border-border bg-surface p-4 text-sm text-secondary">{claim.note}</div>
       ) : null}
+
+      <RiskPanel risk={claim.risk} />
 
       <div className="mt-8">
         <h2 className="text-sm font-semibold text-secondary">Documents</h2>
