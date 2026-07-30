@@ -47,6 +47,11 @@ public class ClaimController {
         return service.list();
     }
 
+    @GetMapping("/queue/review")
+    public List<ClaimSummaryResponse> reviewQueue() {
+        return service.reviewQueue();
+    }
+
     @GetMapping("/{id}")
     public ClaimDetailResponse get(@PathVariable UUID id) {
         return service.get(id);

@@ -8,7 +8,8 @@ public enum ClaimStatus {
     EXTRACTED,
     FAILED,
     APPROVED,
-    FLAGGED;
+    FLAGGED,
+    ESCALATED;
 
     private static final Set<ClaimStatus> PIPELINE_OWNED = Set.of(RECEIVED, PROCESSING, EXTRACTED, FAILED);
 

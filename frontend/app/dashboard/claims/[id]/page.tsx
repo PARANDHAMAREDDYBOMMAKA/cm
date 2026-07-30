@@ -12,7 +12,12 @@ import ExtractionPanel from "@/components/claims/ExtractionPanel";
 import AutoRefresh from "@/components/claims/AutoRefresh";
 import { isRunning, type Extraction } from "@/lib/extraction";
 import RiskPanel from "@/components/claims/RiskPanel";
+import DecisionPanel from "@/components/claims/DecisionPanel";
+import AuditTrail from "@/components/audit/AuditTrail";
 import type { Risk } from "@/lib/risk";
+import type { Decision } from "@/lib/decision";
+import type { AuditEvent } from "@/lib/audit";
+import { formatBytes, statusStyle } from "@/lib/claim";
 
 export const dynamic = "force-dynamic";
 
@@ -35,26 +40,8 @@ type ClaimDetail = {
   updatedAt: string;
   documents: DocumentItem[];
   risk?: Risk | null;
+  decision?: Decision | null;
 };
-
-const statusStyles: Record<string, string> = {
-  RECEIVED: "bg-brand-soft text-brand",
-  PROCESSING: "bg-warning-soft text-warning",
-  EXTRACTED: "bg-brand-soft text-brand",
-  FAILED: "bg-danger-soft text-danger",
-  APPROVED: "bg-success-soft text-success",
-  FLAGGED: "bg-danger-soft text-danger",
-};
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default async function ClaimDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -73,6 +60,8 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
   const claim: ClaimDetail = await response.json();
   const processing = claim.documents.some((document) => isRunning(document.extraction));
+  const auditResponse = await backendFetch(`/api/audit/claims/${id}`);
+  const auditEvents: AuditEvent[] = auditResponse.ok ? await auditResponse.json() : [];
 
   return (
     <div className="animate-in mx-auto max-w-4xl">
@@ -90,7 +79,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{claim.reference}</h1>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[claim.status] ?? "bg-canvas text-muted"}`}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle(claim.status)}`}
             >
               {claim.status}
             </span>
@@ -120,6 +109,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
       ) : null}
 
       <RiskPanel risk={claim.risk} />
+      <DecisionPanel claimId={claim.id} decision={claim.decision} />
 
       <div className="mt-8">
         <h2 className="text-sm font-semibold text-secondary">Documents</h2>
@@ -177,6 +167,11 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
       <div className="mt-6">
         <UploadPanel claimId={claim.id} />
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold text-secondary">Audit trail</h2>
+        <AuditTrail events={auditEvents} />
       </div>
     </div>
   );

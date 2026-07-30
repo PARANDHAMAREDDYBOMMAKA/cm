@@ -1,5 +1,6 @@
 package com.claimguard.claim.dto;
 
+import com.claimguard.decision.dto.DecisionResponse;
 import com.claimguard.fraud.dto.RiskResponse;
 
 import java.time.Instant;
@@ -15,5 +16,6 @@ public record ClaimDetailResponse(
         Instant createdAt,
         Instant updatedAt,
         List<DocumentResponse> documents,
-        RiskResponse risk) {
+        RiskResponse risk,
+        DecisionResponse decision) {
 }

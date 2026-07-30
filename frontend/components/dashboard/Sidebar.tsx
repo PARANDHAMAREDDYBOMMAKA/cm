@@ -22,8 +22,8 @@ type NavItem = {
 const items: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
   { href: "/dashboard/claims", label: "Claims", icon: FileText, enabled: true },
-  { href: "/dashboard/review", label: "Review Queue", icon: ShieldAlert, enabled: false },
-  { href: "/dashboard/audit", label: "Audit Trail", icon: ScrollText, enabled: false },
+  { href: "/dashboard/review", label: "Review Queue", icon: ShieldAlert, enabled: true },
+  { href: "/dashboard/audit", label: "Audit Trail", icon: ScrollText, enabled: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, enabled: false },
 ];
 

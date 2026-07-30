@@ -44,6 +44,11 @@ const SIGNAL_LABELS: Record<string, string> = {
   MODIFIED_AFTER_CREATION: "Modified after creation",
   AI_GENERATED: "Likely AI generated",
   SHARED_DEVICE: "Shared device",
+  LINE_ITEM_MISMATCH: "Line items do not add up",
+  DATE_INCONSISTENCY: "Dates do not line up",
+  PROCEDURE_DIAGNOSIS_MISMATCH: "Treatment does not match diagnosis",
+  AMOUNT_OUT_OF_BAND: "Amount far above the usual",
+  MISSING_CRITICAL_FIELD: "Missing key details",
 };
 
 export function signalLabel(type: string): string {

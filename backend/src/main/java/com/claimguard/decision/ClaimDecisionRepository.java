@@ -1,0 +1,14 @@
+package com.claimguard.decision;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+public interface ClaimDecisionRepository extends JpaRepository<ClaimDecision, UUID> {
+
+    List<ClaimDecision> findByClaimIdIn(Collection<UUID> claimIds);
+
+    long countByOutcome(DecisionOutcome outcome);
+}

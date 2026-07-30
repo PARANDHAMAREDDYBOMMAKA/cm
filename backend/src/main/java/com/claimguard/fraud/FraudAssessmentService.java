@@ -1,10 +1,12 @@
 package com.claimguard.fraud;
 
+import com.claimguard.audit.AuditAction;
+import com.claimguard.audit.AuditService;
 import com.claimguard.claim.Claim;
 import com.claimguard.claim.ClaimDocument;
 import com.claimguard.claim.ClaimDocumentRepository;
 import com.claimguard.claim.ClaimRepository;
-import com.claimguard.claim.ClaimStatus;
+import com.claimguard.decision.DecisionEngine;
 import com.claimguard.extraction.DocumentExtraction;
 import com.claimguard.extraction.DocumentExtractionRepository;
 import com.claimguard.extraction.ExtractionLineItem;
@@ -13,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +41,9 @@ public class FraudAssessmentService {
     private final DocumentEmbeddingStore embeddings;
     private final EmbeddingProvider embeddingProvider;
     private final DocumentIntake intake;
+    private final ConsistencyInspector consistency;
+    private final DecisionEngine decisions;
+    private final AuditService audit;
 
     public FraudAssessmentService(ClaimRepository claims,
             ClaimDocumentRepository documents,
@@ -47,7 +53,10 @@ public class FraudAssessmentService {
             ClaimRiskRepository risks,
             DocumentEmbeddingStore embeddings,
             EmbeddingProvider embeddingProvider,
-            DocumentIntake intake) {
+            DocumentIntake intake,
+            ConsistencyInspector consistency,
+            DecisionEngine decisions,
+            AuditService audit) {
         this.claims = claims;
         this.documents = documents;
         this.extractions = extractions;
@@ -57,6 +66,9 @@ public class FraudAssessmentService {
         this.embeddings = embeddings;
         this.embeddingProvider = embeddingProvider;
         this.intake = intake;
+        this.consistency = consistency;
+        this.decisions = decisions;
+        this.audit = audit;
     }
 
     @Transactional
@@ -75,10 +87,23 @@ public class FraudAssessmentService {
             found.addAll(forensicSignals(claim, document));
             found.addAll(deviceSignals(claim, document));
             found.addAll(semanticSignals(claim, document));
+            found.addAll(consistencySignals(claim, document));
         }
 
         signals.saveAll(found);
-        applyRisk(claim, found);
+        ClaimRisk risk = applyRisk(claim, found);
+        audit.record(claim.getId(), claim.getReference(), AuditAction.RISK_ASSESSED,
+                "Risk assessed as " + risk.getBand().name().toLowerCase() + " (" + risk.getScore() + "/100).",
+                Map.of("band", risk.getBand().name(),
+                        "score", String.valueOf(risk.getScore()),
+                        "signals", String.valueOf(found.size())));
+        decisions.decide(claim, found, risk.getBand(), risk.getScore());
+    }
+
+    private List<FraudSignal> consistencySignals(Claim claim, ClaimDocument document) {
+        return extractions.findByDocumentId(document.getId())
+                .map(extraction -> consistency.inspect(claim, document, extraction))
+                .orElseGet(List::of);
     }
 
     private List<FraudSignal> duplicateSignals(Claim claim, ClaimDocument document) {
@@ -254,9 +279,8 @@ public class FraudAssessmentService {
         }
     }
 
-    private void applyRisk(Claim claim, List<FraudSignal> found) {
+    private ClaimRisk applyRisk(Claim claim, List<FraudSignal> found) {
         int score = Math.min(MAX_SCORE, found.stream().mapToInt(FraudSignal::getWeight).sum());
-        RiskBand band = RiskBand.of(score);
 
         ClaimRisk risk = risks.findById(claim.getId()).orElseGet(() -> {
             ClaimRisk created = new ClaimRisk();
@@ -264,14 +288,9 @@ public class FraudAssessmentService {
             return created;
         });
         risk.setScore(score);
-        risk.setBand(band);
+        risk.setBand(RiskBand.of(score));
         risk.setSignalCount(found.size());
-        risk.setAssessedAt(java.time.Instant.now());
-        risks.save(risk);
-
-        if (band.needsReview() && claim.getStatus().isPipelineOwned()) {
-            claim.setStatus(ClaimStatus.FLAGGED);
-            claims.save(claim);
-        }
+        risk.setAssessedAt(Instant.now());
+        return risks.save(risk);
     }
 }

@@ -1,5 +1,7 @@
 package com.claimguard.extraction;
 
+import com.claimguard.audit.AuditAction;
+import com.claimguard.audit.AuditService;
 import com.claimguard.claim.Claim;
 import com.claimguard.claim.ClaimDocument;
 import com.claimguard.claim.ClaimDocumentRepository;
@@ -26,15 +28,18 @@ public class ExtractionStore {
     private final DocumentExtractionRepository extractions;
     private final ClaimDocumentRepository documents;
     private final ClaimRepository claims;
+    private final AuditService audit;
     private final ApplicationEventPublisher events;
 
     public ExtractionStore(DocumentExtractionRepository extractions,
             ClaimDocumentRepository documents,
             ClaimRepository claims,
+            AuditService audit,
             ApplicationEventPublisher events) {
         this.extractions = extractions;
         this.documents = documents;
         this.claims = claims;
+        this.audit = audit;
         this.events = events;
     }
 
@@ -95,6 +100,13 @@ public class ExtractionStore {
             extractions.save(extraction);
             Claim claim = extraction.getDocument().getClaim();
             applyClaimStatus(claim);
+            audit.record(claim.getId(), claim.getReference(), AuditAction.EXTRACTION_COMPLETED,
+                    "Read " + extraction.getDocument().getOriginalFilename() + " and extracted its fields.",
+                    Map.of("model", String.valueOf(extraction.getModel()),
+                            "invoiceNumber", String.valueOf(extraction.getInvoiceNumber()),
+                            "totalAmount", extraction.getTotalAmount() == null
+                                    ? "null"
+                                    : extraction.getTotalAmount().toPlainString()));
             events.publishEvent(new ClaimAssessmentRequestedEvent(claim.getId()));
         });
     }
@@ -105,7 +117,11 @@ public class ExtractionStore {
             extraction.setStatus(status);
             extraction.setError(Values.truncate(message, 2000));
             extractions.save(extraction);
-            applyClaimStatus(extraction.getDocument().getClaim());
+            Claim claim = extraction.getDocument().getClaim();
+            applyClaimStatus(claim);
+            audit.record(claim.getId(), claim.getReference(), AuditAction.EXTRACTION_FAILED,
+                    "Could not read " + extraction.getDocument().getOriginalFilename() + ".",
+                    Map.of("status", status.name(), "error", String.valueOf(extraction.getError())));
         });
     }
 
@@ -127,6 +143,10 @@ public class ExtractionStore {
         DocumentExtraction extraction = extractions.findByDocumentId(documentId)
                 .orElseThrow(() -> new ClaimNotFoundException(documentId));
         fields.forEach((field, value) -> ExtractionFieldWriter.write(extraction, field, value));
+        Claim claim = extraction.getDocument().getClaim();
+        audit.record(claim.getId(), claim.getReference(), AuditAction.EXTRACTION_EDITED,
+                "A reviewer corrected " + fields.size() + " extracted field(s).",
+                fields);
         return ExtractionMapper.toResponse(extractions.save(extraction));
     }
 

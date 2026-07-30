@@ -4,6 +4,8 @@ import { backendFetch, classifyFailure } from "@/lib/backend";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
 import LoadError from "@/components/dashboard/LoadError";
 import { BAND_STYLES, type RiskBand } from "@/lib/risk";
+import { outcomeLabel, OUTCOME_STYLES, type DecisionOutcome } from "@/lib/decision";
+import { statusStyle } from "@/lib/claim";
 
 export const dynamic = "force-dynamic";
 
@@ -16,15 +18,7 @@ type ClaimSummary = {
   createdAt: string;
   riskScore: number | null;
   riskBand: RiskBand | null;
-};
-
-const statusStyles: Record<string, string> = {
-  RECEIVED: "bg-brand-soft text-brand",
-  PROCESSING: "bg-warning-soft text-warning",
-  EXTRACTED: "bg-brand-soft text-brand",
-  FAILED: "bg-danger-soft text-danger",
-  APPROVED: "bg-success-soft text-success",
-  FLAGGED: "bg-danger-soft text-danger",
+  decisionOutcome: DecisionOutcome | null;
 };
 
 export default async function ClaimsPage() {
@@ -61,6 +55,7 @@ export default async function ClaimsPage() {
                 <th className="px-5 py-3 font-medium">Claimant</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Risk</th>
+                <th className="px-5 py-3 font-medium">Decision</th>
                 <th className="px-5 py-3 font-medium">Documents</th>
                 <th className="px-5 py-3 font-medium">Created</th>
               </tr>
@@ -79,7 +74,7 @@ export default async function ClaimsPage() {
                   <td className="px-5 py-3 text-secondary">{claim.claimantName ?? "—"}</td>
                   <td className="px-5 py-3">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[claim.status] ?? "bg-canvas text-muted"}`}
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(claim.status)}`}
                     >
                       {claim.status}
                     </span>
@@ -90,6 +85,17 @@ export default async function ClaimsPage() {
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${BAND_STYLES[claim.riskBand]}`}
                       >
                         {claim.riskBand} {claim.riskScore}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-subtle">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {claim.decisionOutcome ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${OUTCOME_STYLES[claim.decisionOutcome]}`}
+                      >
+                        {outcomeLabel(claim.decisionOutcome)}
                       </span>
                     ) : (
                       <span className="text-xs text-subtle">—</span>

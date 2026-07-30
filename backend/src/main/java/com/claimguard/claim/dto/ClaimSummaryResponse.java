@@ -11,5 +11,6 @@ public record ClaimSummaryResponse(
         int documentCount,
         Instant createdAt,
         Integer riskScore,
-        String riskBand) {
+        String riskBand,
+        String decisionOutcome) {
 }
