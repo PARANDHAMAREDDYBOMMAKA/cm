@@ -1,0 +1,22 @@
+package com.claimguard.settings;
+
+import com.claimguard.settings.dto.SettingsResponse;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/settings")
+public class SettingsController {
+
+    private final SettingsService service;
+
+    public SettingsController(SettingsService service) {
+        this.service = service;
+    }
+
+    @GetMapping
+    public SettingsResponse snapshot() {
+        return service.snapshot();
+    }
+}

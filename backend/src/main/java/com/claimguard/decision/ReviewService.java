@@ -8,7 +8,10 @@ import com.claimguard.claim.ClaimNotFoundException;
 import com.claimguard.claim.ClaimRepository;
 import com.claimguard.decision.dto.DecisionResponse;
 import com.claimguard.decision.dto.ReviewRequest;
+import com.claimguard.fraud.ClaimRisk;
+import com.claimguard.fraud.ClaimRiskRepository;
 import com.claimguard.support.Values;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +29,23 @@ public class ReviewService {
 
     private final ClaimRepository claims;
     private final ClaimDecisionRepository decisions;
+    private final ClaimRiskRepository risks;
     private final DecisionLookup lookup;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
 
     public ReviewService(ClaimRepository claims,
             ClaimDecisionRepository decisions,
+            ClaimRiskRepository risks,
             DecisionLookup lookup,
-            AuditService audit) {
+            AuditService audit,
+            ApplicationEventPublisher events) {
         this.claims = claims;
         this.decisions = decisions;
+        this.risks = risks;
         this.lookup = lookup;
         this.audit = audit;
+        this.events = events;
     }
 
     @Transactional
@@ -73,6 +82,10 @@ public class ReviewService {
         }
         audit.record(claimId, claim.getReference(), AuditAction.REVIEW_RECORDED,
                 "Claim " + action.description() + " by " + actor + ".", details);
+
+        int score = risks.findById(claimId).map(ClaimRisk::getScore).orElse(0);
+        events.publishEvent(new ClaimDecidedEvent(claimId, claim.getReference(), action.outcome(), false, score,
+                List.copyOf(reasons)));
 
         return lookup.forClaim(claimId);
     }

@@ -1,5 +1,5 @@
 import { CircleCheck, CircleDashed, Scale } from "lucide-react";
-import { isApproved, outcomeLabel, OUTCOME_STYLES, type Decision } from "@/lib/decision";
+import { isApproved, needsAttention, outcomeLabel, OUTCOME_STYLES, type Decision } from "@/lib/decision";
 import ReviewActions from "./ReviewActions";
 
 export default function DecisionPanel({ claimId, decision }: { claimId: string; decision?: Decision | null }) {
@@ -47,7 +47,7 @@ export default function DecisionPanel({ claimId, decision }: { claimId: string; 
         </ul>
       ) : null}
 
-      <ReviewActions claimId={claimId} />
+      <ReviewActions claimId={claimId} settled={!needsAttention(decision.outcome)} />
     </div>
   );
 }

@@ -27,11 +27,12 @@ const ACTIONS: { action: ReviewAction; label: string; icon: typeof Check; classN
   },
 ];
 
-export default function ReviewActions({ claimId }: { claimId: string }) {
+export default function ReviewActions({ claimId, settled }: { claimId: string; settled: boolean }) {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [pending, setPending] = useState<ReviewAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(!settled);
 
   const submit = async (action: ReviewAction) => {
     setPending(action);
@@ -47,6 +48,7 @@ export default function ReviewActions({ claimId }: { claimId: string }) {
         return;
       }
       setNote("");
+      setOpen(false);
       router.refresh();
     } catch {
       setError("Could not record the review. Is the backend running?");
@@ -54,6 +56,20 @@ export default function ReviewActions({ claimId }: { claimId: string }) {
       setPending(null);
     }
   };
+
+  if (!open) {
+    return (
+      <div className="border-t border-border px-5 py-3">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-sm text-secondary underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          Change this decision
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="border-t border-border px-5 py-4">
@@ -80,6 +96,15 @@ export default function ReviewActions({ claimId }: { claimId: string }) {
         ))}
       </div>
       {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
+      {settled ? (
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="mt-3 text-xs text-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          Cancel
+        </button>
+      ) : null}
     </div>
   );
 }

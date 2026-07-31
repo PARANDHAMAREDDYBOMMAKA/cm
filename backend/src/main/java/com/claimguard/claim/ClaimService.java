@@ -82,6 +82,7 @@ public class ClaimService {
         audit.record(saved.getId(), saved.getReference(), AuditAction.CLAIM_CREATED,
                 "Claim " + saved.getReference() + " was created.",
                 Map.of("claimant", String.valueOf(saved.getClaimantName())));
+        events.publishEvent(new ClaimCreatedEvent(saved.getId(), saved.getReference()));
         return detail(saved);
     }
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Plus, X } from "lucide-react";
 import { proxyUrl } from "@/lib/api";
 
-const STATUSES = ["RECEIVED", "PROCESSING", "APPROVED", "FLAGGED"];
+const STATUSES = ["RECEIVED", "PROCESSING", "APPROVED", "FLAGGED", "ESCALATED"];
 
 const inputClass =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand";

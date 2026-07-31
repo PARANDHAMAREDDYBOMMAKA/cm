@@ -12,6 +12,7 @@ import com.claimguard.fraud.FraudSignal;
 import com.claimguard.fraud.RiskBand;
 import com.claimguard.fraud.Severity;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,17 +33,20 @@ public class DecisionEngine {
     private final ClaimDecisionRepository decisions;
     private final DocumentExtractionRepository extractions;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
     private final int autoApproveMaxScore;
 
     public DecisionEngine(ClaimRepository claims,
             ClaimDecisionRepository decisions,
             DocumentExtractionRepository extractions,
             AuditService audit,
+            ApplicationEventPublisher events,
             @Value("${AUTO_APPROVE_MAX_SCORE:24}") int autoApproveMaxScore) {
         this.claims = claims;
         this.decisions = decisions;
         this.extractions = extractions;
         this.audit = audit;
+        this.events = events;
         this.autoApproveMaxScore = autoApproveMaxScore;
     }
 
@@ -85,6 +89,9 @@ public class DecisionEngine {
                         ? "Auto-approved: nothing of concern was found."
                         : "Routed to review: " + decision.getReasons().get(0),
                 details);
+
+        events.publishEvent(new ClaimDecidedEvent(claim.getId(), claim.getReference(), outcome, true, score,
+                List.copyOf(decision.getReasons())));
     }
 
     private List<String> reasons(Claim claim, List<FraudSignal> signals, RiskBand band, int score) {

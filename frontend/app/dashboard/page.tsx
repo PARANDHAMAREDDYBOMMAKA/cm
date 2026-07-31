@@ -1,9 +1,13 @@
 import Link from "next/link";
-import { FileText, Flag, ShieldCheck, ShieldX } from "lucide-react";
+import { FileText, PercentCircle, Flag, Wallet } from "lucide-react";
 import BackendStatus from "@/components/dashboard/BackendStatus";
 import StatCard from "@/components/dashboard/StatCard";
+import LoadError from "@/components/dashboard/LoadError";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
-import { backendFetch } from "@/lib/backend";
+import { backendFetch, classifyFailure } from "@/lib/backend";
+import { statusStyle } from "@/lib/claim";
+import { BAND_STYLES, signalLabel, type RiskBand } from "@/lib/risk";
+import { formatCurrency, formatMinutes } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -15,19 +19,34 @@ type ClaimSummary = {
   createdAt: string;
 };
 
-const statusStyles: Record<string, string> = {
-  RECEIVED: "bg-brand-soft text-brand",
-  PROCESSING: "bg-warning-soft text-warning",
-  APPROVED: "bg-success-soft text-success",
-  FLAGGED: "bg-danger-soft text-danger",
+type Metrics = {
+  totalClaims: number;
+  decidedClaims: number;
+  autoApproved: number;
+  needsReview: number;
+  reviewerApproved: number;
+  escalated: number;
+  straightThroughRate: number;
+  amountProcessed: string;
+  leakageCaught: string;
+  averageDecisionMinutes: number | null;
+  slaHours: number;
+  openBeyondSla: number;
+  riskBands: Partial<Record<RiskBand, number>>;
+  topSignals: { type: string; count: number }[];
+  auditEvents: number;
+  auditIntact: boolean;
 };
 
 export default async function DashboardPage() {
-  const response = await backendFetch("/api/claims");
-  const claims: ClaimSummary[] = response.ok ? await response.json() : [];
-  const total = claims.length;
-  const approved = claims.filter((claim) => claim.status === "APPROVED").length;
-  const flagged = claims.filter((claim) => claim.status === "FLAGGED").length;
+  const [claimsResponse, metricsResponse] = await Promise.all([
+    backendFetch("/api/claims"),
+    backendFetch("/api/metrics"),
+  ]);
+
+  const claims: ClaimSummary[] = claimsResponse.ok ? await claimsResponse.json() : [];
+  const metrics: Metrics | null = metricsResponse.ok ? await metricsResponse.json() : null;
+  const failure = metricsResponse.ok ? null : await classifyFailure(metricsResponse);
   const recent = claims.slice(0, 5);
 
   return (
@@ -43,12 +62,125 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Claims processed" value={String(total)} hint="All time" icon={FileText} tone="brand" />
-        <StatCard label="Auto-approved" value={String(approved)} hint="Clean and verified" icon={ShieldCheck} tone="success" />
-        <StatCard label="Flagged for review" value={String(flagged)} hint="Needs a human" icon={Flag} tone="warning" />
-        <StatCard label="Fraud caught" value="0" hint="Blocked before payout" icon={ShieldX} tone="danger" />
-      </div>
+      {failure ? (
+        <LoadError kind={failure} what="the dashboard metrics" />
+      ) : (
+        <>
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Claims processed"
+              value={String(metrics?.totalClaims ?? 0)}
+              hint="All time"
+              icon={FileText}
+              tone="brand"
+            />
+            <StatCard
+              label="Straight-through rate"
+              value={`${metrics?.straightThroughRate ?? 0}%`}
+              hint="Auto-approved without a human"
+              icon={PercentCircle}
+              tone="success"
+            />
+            <StatCard
+              label="Leakage caught"
+              value={formatCurrency(metrics?.leakageCaught ?? 0)}
+              hint="Blocked before payout"
+              icon={Wallet}
+              tone="danger"
+            />
+            <StatCard
+              label="Flagged for review"
+              value={String(metrics?.needsReview ?? 0)}
+              hint="Needs a human"
+              icon={Flag}
+              tone="warning"
+            />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-sm font-semibold text-secondary">Turnaround</h2>
+              <dl className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <dt className="text-sm text-muted">Average decision time</dt>
+                  <dd className="text-sm font-medium tabular-nums text-ink">
+                    {formatMinutes(metrics?.averageDecisionMinutes ?? null)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-sm text-muted">Open beyond {metrics?.slaHours ?? 0}h SLA</dt>
+                  <dd className="text-sm font-medium tabular-nums text-ink">{metrics?.openBeyondSla ?? 0}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-sm text-muted">Amount processed</dt>
+                  <dd className="text-sm font-medium tabular-nums text-ink">
+                    {formatCurrency(metrics?.amountProcessed ?? 0)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-sm font-semibold text-secondary">Audit chain</h2>
+              <dl className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <dt className="text-sm text-muted">Entries</dt>
+                  <dd className="text-sm font-medium tabular-nums text-ink">{metrics?.auditEvents ?? 0}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-sm text-muted">Seal</dt>
+                  <dd
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      metrics?.auditIntact ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+                    }`}
+                  >
+                    {metrics?.auditIntact ? "Intact" : "Broken"}
+                  </dd>
+                </div>
+              </dl>
+              <Link href="/dashboard/audit" className="mt-4 inline-block text-sm text-brand hover:underline">
+                View audit trail
+              </Link>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-sm font-semibold text-secondary">Risk bands</h2>
+              <dl className="mt-4 space-y-2">
+                {Object.entries(metrics?.riskBands ?? {}).length === 0 ? (
+                  <p className="text-sm text-subtle">No claims assessed yet.</p>
+                ) : (
+                  Object.entries(metrics?.riskBands ?? {}).map(([band, count]) => (
+                    <div key={band} className="flex items-center justify-between">
+                      <dt>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${BAND_STYLES[band as RiskBand]}`}
+                        >
+                          {band}
+                        </span>
+                      </dt>
+                      <dd className="text-sm font-medium tabular-nums text-ink">{count}</dd>
+                    </div>
+                  ))
+                )}
+              </dl>
+            </div>
+          </div>
+
+          {metrics?.topSignals?.length ? (
+            <div className="mt-6 rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-sm font-semibold text-secondary">Top fraud signals</h2>
+              <ul className="mt-3 space-y-2">
+                {metrics.topSignals.map((signal) => (
+                  <li key={signal.type} className="flex items-center justify-between text-sm">
+                    <span className="text-secondary">{signalLabel(signal.type)}</span>
+                    <span className="font-medium tabular-nums text-ink">{signal.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
+      )}
 
       {recent.length === 0 ? (
         <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface px-6 py-16 text-center">
@@ -80,9 +212,7 @@ export default async function DashboardPage() {
                       </Link>
                     </td>
                     <td className="px-5 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[claim.status] ?? "bg-canvas text-muted"}`}
-                      >
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(claim.status)}`}>
                         {claim.status}
                       </span>
                     </td>

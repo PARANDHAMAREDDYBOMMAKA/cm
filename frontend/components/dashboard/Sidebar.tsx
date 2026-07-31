@@ -24,7 +24,7 @@ const items: NavItem[] = [
   { href: "/dashboard/claims", label: "Claims", icon: FileText, enabled: true },
   { href: "/dashboard/review", label: "Review Queue", icon: ShieldAlert, enabled: true },
   { href: "/dashboard/audit", label: "Audit Trail", icon: ScrollText, enabled: true },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings, enabled: false },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, enabled: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {

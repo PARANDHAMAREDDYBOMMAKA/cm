@@ -9,6 +9,7 @@ import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
 import DeleteClaimButton from "@/components/claims/DeleteClaimButton";
 import DeleteDocumentButton from "@/components/claims/DeleteDocumentButton";
 import ExtractionPanel from "@/components/claims/ExtractionPanel";
+import NhcxPanel from "@/components/claims/NhcxPanel";
 import AutoRefresh from "@/components/claims/AutoRefresh";
 import { isRunning, type Extraction } from "@/lib/extraction";
 import RiskPanel from "@/components/claims/RiskPanel";
@@ -167,6 +168,10 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
       <div className="mt-6">
         <UploadPanel claimId={claim.id} />
+      </div>
+
+      <div className="mt-6">
+        <NhcxPanel claimId={claim.id} />
       </div>
 
       <div className="mt-8">

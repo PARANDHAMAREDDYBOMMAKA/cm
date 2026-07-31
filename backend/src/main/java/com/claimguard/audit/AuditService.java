@@ -47,7 +47,7 @@ public class AuditService {
             AuditAction action,
             String summary,
             Map<String, String> details) {
-        AuditHead head = heads.findById(AuditHead.ID).orElseGet(AuditService::genesis);
+        AuditHead head = heads.findAndLock(AuditHead.ID).orElseGet(AuditService::genesis);
 
         AuditEvent event = new AuditEvent();
         event.setSeq(head.getSeq() + 1);

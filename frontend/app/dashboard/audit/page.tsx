@@ -2,6 +2,7 @@ import { backendFetch, classifyFailure } from "@/lib/backend";
 import LoadError from "@/components/dashboard/LoadError";
 import AuditTrail from "@/components/audit/AuditTrail";
 import SealBadge from "@/components/audit/SealBadge";
+import ExportButton from "@/components/audit/ExportButton";
 import type { AuditEvent, AuditVerification } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function AuditPage() {
             Every action, hash-chained in order. Changing one entry breaks every entry after it.
           </p>
         </div>
+        <ExportButton />
       </div>
 
       {failure ? (

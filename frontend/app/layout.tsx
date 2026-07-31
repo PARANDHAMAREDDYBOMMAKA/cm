@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ClaimGuard",
-  description: "Authenticity-first claims intelligence",
+  description:
+    "ClaimGuard reads claim documents, catches duplicates and tampering, and auto-approves the clean ones with a tamper-evident audit trail.",
 };
 
 export default function RootLayout({
