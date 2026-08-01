@@ -33,6 +33,7 @@ public class SettingsService {
     private final int autoApproveMaxScore;
     private final long slaHours;
     private final String nhcxParticipantCode;
+    private final String sentryDsn;
 
     public SettingsService(DocumentReader reader,
             EmbeddingProvider embeddings,
@@ -45,7 +46,8 @@ public class SettingsService {
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}") String issuerUri,
             @Value("${AUTO_APPROVE_MAX_SCORE:24}") int autoApproveMaxScore,
             @Value("${DECISION_SLA_HOURS:24}") long slaHours,
-            @Value("${NHCX_PARTICIPANT_CODE:claimguard.demo@hcx}") String nhcxParticipantCode) {
+            @Value("${NHCX_PARTICIPANT_CODE:claimguard.demo@hcx}") String nhcxParticipantCode,
+            @Value("${sentry.dsn:}") String sentryDsn) {
         this.reader = reader;
         this.embeddings = embeddings;
         this.aiDetector = aiDetector;
@@ -58,6 +60,7 @@ public class SettingsService {
         this.autoApproveMaxScore = autoApproveMaxScore;
         this.slaHours = slaHours;
         this.nhcxParticipantCode = nhcxParticipantCode;
+        this.sentryDsn = sentryDsn;
     }
 
     public SettingsResponse snapshot() {
@@ -102,7 +105,12 @@ public class SettingsService {
                 new CapabilityResponse("nhcx", "NHCX exchange", nhcx.isAvailable(),
                         nhcx.isAvailable()
                                 ? nhcxParticipantCode
-                                : "Bundles are FHIR-ready but nothing is submitted yet."));
+                                : "Bundles are FHIR-ready but nothing is submitted yet."),
+                new CapabilityResponse("errorReporting", "Error reporting", !sentryDsn.isBlank(),
+                        sentryDsn.isBlank()
+                                ? "Set SENTRY_DSN to report backend errors."
+                                : "Sentry"),
+                new CapabilityResponse("apiDocs", "API documentation", true, "/docs and /redoc"));
     }
 
     private List<SettingResponse> thresholds() {

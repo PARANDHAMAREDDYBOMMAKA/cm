@@ -9,6 +9,7 @@ import {
   EXTRACTION_FIELDS,
   formatAmount,
   isRunning,
+  PRIMARY_FIELD_KEYS,
   type Extraction,
 } from "@/lib/extraction";
 import ExtractionField from "./ExtractionField";
@@ -23,6 +24,7 @@ export default function ExtractionPanel({ claimId, documentId, extraction }: Pro
   const router = useRouter();
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAllFields, setShowAllFields] = useState(false);
 
   const rerun = async () => {
     setRequesting(true);
@@ -90,7 +92,10 @@ export default function ExtractionPanel({ claimId, documentId, extraction }: Pro
       ) : (
         <>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {EXTRACTION_FIELDS.map((field) => (
+            {(showAllFields
+              ? EXTRACTION_FIELDS
+              : EXTRACTION_FIELDS.filter((field) => PRIMARY_FIELD_KEYS.includes(field.key))
+            ).map((field) => (
               <ExtractionField
                 key={field.key}
                 claimId={claimId}
@@ -101,6 +106,16 @@ export default function ExtractionPanel({ claimId, documentId, extraction }: Pro
               />
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAllFields((previous) => !previous)}
+            className="mt-2 text-xs font-medium text-secondary underline-offset-4 transition-colors hover:text-ink hover:underline"
+          >
+            {showAllFields
+              ? "Show key fields only"
+              : `Show all ${EXTRACTION_FIELDS.length} fields`}
+          </button>
 
           {extraction.lineItems.length > 0 ? (
             <div className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface">

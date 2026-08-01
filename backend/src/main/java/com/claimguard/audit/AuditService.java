@@ -1,8 +1,6 @@
 package com.claimguard.audit;
 
 import com.claimguard.support.Values;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,8 +11,6 @@ import java.util.UUID;
 
 @Service
 public class AuditService {
-
-    private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
     private final AuditEventRepository events;
     private final AuditHeadRepository heads;
@@ -31,18 +27,6 @@ public class AuditService {
 
     @Transactional
     public void record(UUID claimId,
-            String claimReference,
-            AuditAction action,
-            String summary,
-            Map<String, String> details) {
-        try {
-            append(claimId, claimReference, action, summary, details);
-        } catch (RuntimeException exception) {
-            log.warn("Could not write audit event {} for claim {}: {}", action, claimId, exception.getMessage());
-        }
-    }
-
-    private void append(UUID claimId,
             String claimReference,
             AuditAction action,
             String summary,

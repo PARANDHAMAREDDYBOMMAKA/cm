@@ -32,6 +32,8 @@
 		<pdfbox.version>3.0.5</pdfbox.version>
 		<metadata.extractor.version>2.19.0</metadata.extractor.version>
 		<hapi.fhir.version>8.0.0</hapi.fhir.version>
+		<springdoc.version>3.0.3</springdoc.version>
+		<sentry.version>8.50.0</sentry.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -120,6 +122,18 @@
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
 			<version>${hapi.fhir.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.sentry</groupId>
+			<artifactId>sentry-spring-boot-4-starter</artifactId>
+			<version>${sentry.version}</version>
 		</dependency>
 
 		<dependency>

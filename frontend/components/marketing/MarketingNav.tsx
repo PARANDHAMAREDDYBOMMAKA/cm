@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 
 const links = [
-  { href: "#how", label: "How it works" },
-  { href: "#features", label: "Features" },
-  { href: "#security", label: "Security" },
+  { href: "/#how", label: "How it works" },
+  { href: "/features", label: "Features" },
+  { href: "/#security", label: "Security" },
 ];
 
 export default function MarketingNav({
@@ -26,13 +26,13 @@ export default function MarketingNav({
 
         <nav className="hidden items-center gap-8 md:flex">
           {links.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="text-sm font-medium text-secondary transition-colors hover:text-ink"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
 

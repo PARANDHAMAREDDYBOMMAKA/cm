@@ -9,11 +9,16 @@ const highlights = [
   { icon: FileCheck2, text: "Auto-approve clean claims, flag the rest for review" },
 ];
 
-export default async function SignInPage() {
-  const session = await auth();
-  if (session) {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ expired?: string }>;
+}) {
+  const [session, params] = await Promise.all([auth(), searchParams]);
+  if (session && !session.error) {
     redirect("/dashboard");
   }
+  const expired = params.expired === "1";
 
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
@@ -57,6 +62,12 @@ export default async function SignInPage() {
 
           <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
           <p className="mt-2 text-sm text-muted">Continue to your claims console.</p>
+
+          {expired ? (
+            <p className="mt-4 rounded-lg border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
+              Your session expired and could not be renewed. Sign in again to continue.
+            </p>
+          ) : null}
 
           {isAuthConfigured ? (
             <form

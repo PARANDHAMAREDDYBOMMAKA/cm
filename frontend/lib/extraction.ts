@@ -70,6 +70,15 @@ export const EXTRACTION_FIELDS: { key: ExtractionFieldKey; label: string }[] = [
   { key: "currency", label: "Currency" },
 ];
 
+export const PRIMARY_FIELD_KEYS: ExtractionFieldKey[] = [
+  "documentType",
+  "patientName",
+  "providerName",
+  "diagnosis",
+  "invoiceNumber",
+  "totalAmount",
+];
+
 export const LOW_CONFIDENCE = 0.75;
 
 export async function errorMessage(response: Response, fallback: string): Promise<string> {

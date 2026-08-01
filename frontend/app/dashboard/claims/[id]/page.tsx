@@ -11,6 +11,8 @@ import DeleteDocumentButton from "@/components/claims/DeleteDocumentButton";
 import ExtractionPanel from "@/components/claims/ExtractionPanel";
 import NhcxPanel from "@/components/claims/NhcxPanel";
 import AutoRefresh from "@/components/claims/AutoRefresh";
+import ClaimTabs from "@/components/claims/ClaimTabs";
+import ClaimFacts from "@/components/claims/ClaimFacts";
 import { isRunning, type Extraction } from "@/lib/extraction";
 import RiskPanel from "@/components/claims/RiskPanel";
 import DecisionPanel from "@/components/claims/DecisionPanel";
@@ -44,6 +46,11 @@ type ClaimDetail = {
   decision?: Decision | null;
 };
 
+function primaryExtraction(documents: DocumentItem[]): Extraction | null {
+  const completed = documents.find((document) => document.extraction?.status === "COMPLETED");
+  return completed?.extraction ?? documents[0]?.extraction ?? null;
+}
+
 export default async function ClaimDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const response = await backendFetch(`/api/claims/${id}`);
@@ -63,6 +70,85 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
   const processing = claim.documents.some((document) => isRunning(document.extraction));
   const auditResponse = await backendFetch(`/api/audit/claims/${id}`);
   const auditEvents: AuditEvent[] = auditResponse.ok ? await auditResponse.json() : [];
+  const auditFailure = auditResponse.ok ? null : await classifyFailure(auditResponse);
+
+  const overview = (
+    <>
+      <ClaimFacts extraction={primaryExtraction(claim.documents)} />
+      <DecisionPanel claimId={claim.id} decision={claim.decision} />
+      <RiskPanel risk={claim.risk} />
+      <div className="mt-6">
+        <NhcxPanel claimId={claim.id} />
+      </div>
+    </>
+  );
+
+  const documents = (
+    <>
+      {claim.documents.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-dashed border-border-strong bg-surface px-6 py-10 text-center">
+          <p className="text-sm font-medium text-ink">No documents yet</p>
+          <p className="mt-1 text-sm text-muted">Upload a bill below and it will be read automatically.</p>
+        </div>
+      ) : (
+        <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+          {claim.documents.map((document) => {
+            const contentUrl = proxyUrl(`/api/claims/${claim.id}/documents/${document.id}/content`);
+            const isImage = (document.contentType ?? "").startsWith("image/");
+            return (
+              <li key={document.id}>
+                <div className="flex items-center gap-3 px-5 py-3">
+                  {isImage ? (
+                    <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <img
+                        src={contentUrl}
+                        alt={document.filename}
+                        className="size-10 rounded-lg border border-border object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
+                      <FileText className="size-4" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
+                    <p className="text-xs text-subtle">
+                      {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
+                    </p>
+                  </div>
+                  <a
+                    href={contentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    View
+                  </a>
+                  <DeleteDocumentButton claimId={claim.id} documentId={document.id} />
+                </div>
+                <ExtractionPanel
+                  claimId={claim.id}
+                  documentId={document.id}
+                  extraction={document.extraction}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-6">
+        <UploadPanel claimId={claim.id} />
+      </div>
+    </>
+  );
+
+  const audit = auditFailure ? (
+    <LoadError kind={auditFailure} what="this claim's audit trail" />
+  ) : (
+    <AuditTrail events={auditEvents} />
+  );
 
   return (
     <div className="animate-in mx-auto max-w-4xl">
@@ -79,15 +165,11 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{claim.reference}</h1>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle(claim.status)}`}
-            >
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle(claim.status)}`}>
               {claim.status}
             </span>
           </div>
-          {claim.claimantName ? (
-            <p className="mt-1 text-sm text-secondary">{claim.claimantName}</p>
-          ) : null}
+          {claim.claimantName ? <p className="mt-1 text-sm text-secondary">{claim.claimantName}</p> : null}
           <p className="mt-1 text-sm text-muted">Created {new Date(claim.createdAt).toLocaleString()}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -106,78 +188,18 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {claim.note ? (
-        <div className="mt-4 rounded-xl border border-border bg-surface p-4 text-sm text-secondary">{claim.note}</div>
+        <div className="mt-4 rounded-xl border border-border bg-surface p-4 text-sm text-secondary">
+          {claim.note}
+        </div>
       ) : null}
 
-      <RiskPanel risk={claim.risk} />
-      <DecisionPanel claimId={claim.id} decision={claim.decision} />
-
-      <div className="mt-8">
-        <h2 className="text-sm font-semibold text-secondary">Documents</h2>
-        {claim.documents.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No documents uploaded yet.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-            {claim.documents.map((document) => {
-              const contentUrl = proxyUrl(`/api/claims/${claim.id}/documents/${document.id}/content`);
-              const isImage = (document.contentType ?? "").startsWith("image/");
-              return (
-                <li key={document.id}>
-                  <div className="flex items-center gap-3 px-5 py-3">
-                    {isImage ? (
-                      <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                        <img
-                          src={contentUrl}
-                          alt={document.filename}
-                          className="size-10 rounded-lg border border-border object-cover"
-                        />
-                      </a>
-                    ) : (
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
-                        <FileText className="size-4" />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
-                      <p className="text-xs text-subtle">
-                        {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
-                      </p>
-                    </div>
-                    <a
-                      href={contentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
-                    >
-                      <ExternalLink className="size-3.5" />
-                      View
-                    </a>
-                    <DeleteDocumentButton claimId={claim.id} documentId={document.id} />
-                  </div>
-                  <ExtractionPanel
-                    claimId={claim.id}
-                    documentId={document.id}
-                    extraction={document.extraction}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div className="mt-6">
-        <UploadPanel claimId={claim.id} />
-      </div>
-
-      <div className="mt-6">
-        <NhcxPanel claimId={claim.id} />
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-sm font-semibold text-secondary">Audit trail</h2>
-        <AuditTrail events={auditEvents} />
-      </div>
+      <ClaimTabs
+        tabs={[
+          { key: "overview", label: "Overview", content: overview },
+          { key: "documents", label: "Documents", count: claim.documents.length, content: documents },
+          { key: "audit", label: "Audit", count: auditEvents.length, content: audit },
+        ]}
+      />
     </div>
   );
 }

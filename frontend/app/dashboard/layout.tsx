@@ -1,14 +1,21 @@
+import { redirect } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import FingerprintBoot from "@/components/dashboard/FingerprintBoot";
 import SupportWidget from "@/components/dashboard/SupportWidget";
 import Analytics from "@/components/dashboard/Analytics";
+import { auth, isAuthConfigured } from "@/lib/auth";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  if (isAuthConfigured && session?.error) {
+    redirect("/signin?expired=1");
+  }
+
   return (
     <div className="flex min-h-screen bg-canvas">
       <FingerprintBoot />

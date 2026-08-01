@@ -70,6 +70,7 @@ public class MetricsService {
         long autoApproved = count(byClaim, DecisionOutcome.AUTO_APPROVED);
         long needsReview = count(byClaim, DecisionOutcome.NEEDS_REVIEW);
         long reviewerApproved = count(byClaim, DecisionOutcome.APPROVED);
+        long flagged = count(byClaim, DecisionOutcome.FLAGGED);
         long escalated = count(byClaim, DecisionOutcome.ESCALATED);
         long decided = byClaim.size();
 
@@ -103,7 +104,9 @@ public class MetricsService {
                 autoApproved,
                 needsReview,
                 reviewerApproved,
+                flagged,
                 escalated,
+                needsReview + flagged + escalated,
                 rate(autoApproved, decided),
                 processed,
                 leakage,

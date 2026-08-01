@@ -1,4 +1,4 @@
-import { AlertOctagon, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { AlertOctagon, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
 import {
   BAND_STYLES,
   isFlagged,
@@ -9,6 +9,7 @@ import {
 
 export default function RiskPanel({ risk }: { risk?: Risk | null }) {
   const flagged = risk ? isFlagged(risk.band) : false;
+  const hasSignals = (risk?.signalCount ?? 0) > 0;
 
   if (!risk || risk.band === "UNASSESSED") {
     return (
@@ -31,15 +32,22 @@ export default function RiskPanel({ risk }: { risk?: Risk | null }) {
         <div className="flex items-center gap-3">
           {flagged ? (
             <AlertOctagon className="size-5 shrink-0 text-danger" />
+          ) : hasSignals ? (
+            <ShieldAlert className="size-5 shrink-0 text-warning" />
           ) : (
             <ShieldCheck className="size-5 shrink-0 text-success" />
           )}
           <div>
             <p className={`text-sm font-semibold ${flagged ? "text-danger" : "text-ink"}`}>
-              {flagged ? "Flagged for review" : "No fraud signals of concern"}
+              {flagged
+                ? "Flagged for review"
+                : hasSignals
+                  ? "Signals found, below the review threshold"
+                  : "No fraud signals found"}
             </p>
             <p className="mt-0.5 text-xs text-secondary">
               {risk.signalCount} signal{risk.signalCount === 1 ? "" : "s"} · risk score {risk.score}/100
+              {hasSignals && !flagged ? " · review starts at 50" : ""}
             </p>
           </div>
         </div>

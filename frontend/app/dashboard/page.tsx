@@ -25,7 +25,9 @@ type Metrics = {
   autoApproved: number;
   needsReview: number;
   reviewerApproved: number;
+  flagged: number;
   escalated: number;
+  awaitingReview: number;
   straightThroughRate: number;
   amountProcessed: string;
   leakageCaught: string;
@@ -89,9 +91,9 @@ export default async function DashboardPage() {
               tone="danger"
             />
             <StatCard
-              label="Flagged for review"
-              value={String(metrics?.needsReview ?? 0)}
-              hint="Needs a human"
+              label="Awaiting review"
+              value={String(metrics?.awaitingReview ?? 0)}
+              hint="Sitting in the review queue"
               icon={Flag}
               tone="warning"
             />
