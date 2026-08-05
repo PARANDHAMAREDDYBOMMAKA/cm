@@ -1,4 +1,17 @@
 package com.claimguard.claim.dto;
 
-public record CreateClaimRequest(String reference, String claimantName, String note) {
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record CreateClaimRequest(
+        @Size(max = 64, message = "reference must be at most 64 characters")
+        @Pattern(regexp = "^$|^[\\p{Alnum}][\\p{Alnum} ._/-]*$",
+                message = "reference may only contain letters, digits, spaces and . _ / -")
+        String reference,
+
+        @Size(max = 255, message = "claimantName must be at most 255 characters")
+        String claimantName,
+
+        @Size(max = 2000, message = "note must be at most 2000 characters")
+        String note) {
 }

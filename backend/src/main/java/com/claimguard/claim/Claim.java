@@ -39,6 +39,12 @@ public class Claim {
     @Column(name = "note", length = 2000)
     private String note;
 
+    @Column(name = "owner_subject", length = 255)
+    private String ownerSubject;
+
+    @Column(name = "owner_org", length = 255)
+    private String ownerOrg;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private ClaimStatus status = ClaimStatus.RECEIVED;

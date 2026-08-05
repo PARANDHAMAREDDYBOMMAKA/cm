@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { proxyUrl } from "@/lib/api";
+import { networkMessage, problemMessage } from "@/lib/problem";
+import { useToast } from "@/components/ui/Toast";
 
 export default function ExportButton() {
+  const { notify } = useToast();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,7 +17,9 @@ export default function ExportButton() {
     try {
       const response = await fetch(proxyUrl("/api/audit/export"));
       if (!response.ok) {
-        setError(`Could not export the audit trail (${response.status}).`);
+        const message = await problemMessage(response, "Could not export the audit trail");
+        setError(message);
+        notify({ tone: "error", title: "Export failed", description: message });
         return;
       }
       const blob = await response.blob();
@@ -26,8 +31,11 @@ export default function ExportButton() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
+      notify({ tone: "success", title: "Audit trail exported", description: "claimguard-audit.csv" });
     } catch {
-      setError("Could not export the audit trail. Is the backend running?");
+      const message = networkMessage("Could not export the audit trail.");
+      setError(message);
+      notify({ tone: "error", title: "Export failed", description: message });
     } finally {
       setDownloading(false);
     }

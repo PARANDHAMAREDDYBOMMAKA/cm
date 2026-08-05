@@ -5,6 +5,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import LoadError from "@/components/dashboard/LoadError";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
 import { backendFetch, classifyFailure } from "@/lib/backend";
+import { readItems } from "@/lib/page";
 import { statusStyle } from "@/lib/claim";
 import { BAND_STYLES, signalLabel, type RiskBand } from "@/lib/risk";
 import { formatCurrency, formatMinutes } from "@/lib/format";
@@ -42,14 +43,13 @@ type Metrics = {
 
 export default async function DashboardPage() {
   const [claimsResponse, metricsResponse] = await Promise.all([
-    backendFetch("/api/claims"),
+    backendFetch("/api/claims?page=0&size=5"),
     backendFetch("/api/metrics"),
   ]);
 
-  const claims: ClaimSummary[] = claimsResponse.ok ? await claimsResponse.json() : [];
+  const recent = await readItems<ClaimSummary>(claimsResponse);
   const metrics: Metrics | null = metricsResponse.ok ? await metricsResponse.json() : null;
   const failure = metricsResponse.ok ? null : await classifyFailure(metricsResponse);
-  const recent = claims.slice(0, 5);
 
   return (
     <div className="animate-in mx-auto max-w-6xl">

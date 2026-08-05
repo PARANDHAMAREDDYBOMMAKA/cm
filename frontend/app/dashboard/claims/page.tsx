@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { backendFetch, classifyFailure } from "@/lib/backend";
+import { readItems } from "@/lib/page";
 import ClaimFormDialog from "@/components/claims/ClaimFormDialog";
 import LoadError from "@/components/dashboard/LoadError";
 import { BAND_STYLES, type RiskBand } from "@/lib/risk";
@@ -22,8 +23,8 @@ type ClaimSummary = {
 };
 
 export default async function ClaimsPage() {
-  const response = await backendFetch("/api/claims");
-  const claims: ClaimSummary[] = response.ok ? await response.json() : [];
+  const response = await backendFetch("/api/claims?page=0&size=200");
+  const claims = await readItems<ClaimSummary>(response);
   const failure = response.ok ? null : await classifyFailure(response);
 
   return (

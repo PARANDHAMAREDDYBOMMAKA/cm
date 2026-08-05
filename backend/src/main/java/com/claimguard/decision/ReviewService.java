@@ -1,5 +1,6 @@
 package com.claimguard.decision;
 
+import com.claimguard.access.AccessPolicy;
 import com.claimguard.audit.Actors;
 import com.claimguard.audit.AuditAction;
 import com.claimguard.audit.AuditService;
@@ -32,6 +33,7 @@ public class ReviewService {
     private final ClaimRiskRepository risks;
     private final DecisionLookup lookup;
     private final AuditService audit;
+    private final AccessPolicy access;
     private final ApplicationEventPublisher events;
 
     public ReviewService(ClaimRepository claims,
@@ -39,18 +41,24 @@ public class ReviewService {
             ClaimRiskRepository risks,
             DecisionLookup lookup,
             AuditService audit,
+            AccessPolicy access,
             ApplicationEventPublisher events) {
         this.claims = claims;
         this.decisions = decisions;
         this.risks = risks;
         this.lookup = lookup;
         this.audit = audit;
+        this.access = access;
         this.events = events;
     }
 
     @Transactional
     public DecisionResponse review(UUID claimId, ReviewRequest request) {
         Claim claim = claims.findById(claimId).orElseThrow(() -> new ClaimNotFoundException(claimId));
+        if (!access.canSee(claim.getOwnerSubject(), claim.getOwnerOrg())) {
+            throw new ClaimNotFoundException(claimId);
+        }
+        access.requireReviewer();
         ReviewAction action = parseAction(request.action());
         String note = Values.truncate(request.note(), 2000);
         String actor = Actors.current();

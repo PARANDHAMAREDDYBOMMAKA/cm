@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { backendFetch, classifyFailure } from "@/lib/backend";
+import { readItems } from "@/lib/page";
 import LoadError from "@/components/dashboard/LoadError";
 import { BAND_STYLES, isFlagged, type RiskBand } from "@/lib/risk";
 import { outcomeLabel, OUTCOME_STYLES, type DecisionOutcome } from "@/lib/decision";
@@ -21,8 +22,8 @@ type ClaimSummary = {
 };
 
 export default async function ReviewQueuePage() {
-  const response = await backendFetch("/api/claims/queue/review");
-  const claims: ClaimSummary[] = response.ok ? await response.json() : [];
+  const response = await backendFetch("/api/claims/queue/review?page=0&size=200");
+  const claims = await readItems<ClaimSummary>(response);
   const failure = response.ok ? null : await classifyFailure(response);
 
   return (

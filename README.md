@@ -65,9 +65,11 @@ backend/    Spring Boot API (Java 17, Maven)
     support/      shared parsing/formatting helpers, .env loader
   src/main/resources/db/migration/   Flyway SQL migrations (V1..V5)
 frontend/   Next.js reviewer console (App Router, Tailwind)
-  app/dashboard/  metrics dashboard, claims list/detail, review queue, audit trail
+  app/            marketing landing (/), features (/features), sign-in (/signin)
+  app/dashboard/  metrics dashboard, claims list/detail, review queue, audit trail, settings
+  middleware.ts   mirrors the backend's runtime-derived stack headers onto app responses
   lib/            backend proxy fetch, auth (NextAuth + Zitadel), formatting helpers
-  components/     claim forms, risk/decision panels, review actions, audit UI
+  components/     claim forms, risk/decision panels, review actions, audit UI, marketing sections
 samples/    Synthetic sample claim documents + README.md + DEMO.md (this is the demo fixture set)
 ```
 
@@ -140,6 +142,19 @@ Writes synthetic hospital bill PDFs/PNGs (clean and deliberately fraudulent) to 
 | `PDF_JPEG_QUALITY` | no | `0.72` | JPEG quality used for the rasterized image sent to the VLM. |
 | `EXTRACTION_WORKERS` | no | `4` | Thread pool size for the extraction queue. |
 | `EXTRACTION_QUEUE_CAPACITY` | no | `200` | Extraction task queue capacity. |
+| `EXTRACTION_LEASE_SECONDS` | no | `900` | How long a worker owns an extraction job. Once the lease expires the sweeper may hand the job to another worker, so this must exceed the slowest realistic read. |
+| `EXTRACTION_MAX_ATTEMPTS` | no | `3` | How many times a failed extraction is retried before it is left failed. |
+| `EXTRACTION_RETRY_BACKOFF_SECONDS` | no | `60` | Base delay before retrying a failed extraction; doubles per attempt. |
+| `EXTRACTION_PENDING_GRACE_SECONDS` | no | `300` | How long a job may sit `PENDING` before the sweeper assumes its submission was lost and requeues it. |
+| `EXTRACTION_SWEEP_INTERVAL_MS` | no | `60000` | How often the sweeper looks for stalled and retryable extractions. |
+| `EXTRACTION_SWEEP_INITIAL_DELAY_MS` | no | `60000` | Delay before the first sweep after boot. |
+| `UPLOAD_MAX_BYTES` | no | `26214400` | Largest accepted document. Keep at or below `spring.servlet.multipart.max-file-size`. |
+| `UPLOAD_BURST` | no | `10` | Uploads a single subject may make back-to-back before the limiter refuses. |
+| `UPLOAD_PER_MINUTE` | no | `30` | Sustained upload rate per subject. Bounds paid VLM spend from one caller. |
+| `CLAIM_SCOPE` | no | `org` | Which claims a caller may see: `org` (same tenant), `user` (own claims only) or `none` (no scoping). Ignored when `OIDC_ISSUER_URI` is unset, since there is no caller to scope by. |
+| `TENANT_CLAIM` | no | `urn:zitadel:iam:user:resourceowner:id` | JWT claim read as the caller's organisation for `CLAIM_SCOPE=org`. |
+| `ROLES_CLAIM` | no | `urn:zitadel:iam:org:project:roles` | JWT claim read as the caller's roles. |
+| `REVIEWER_ROLES` | no | — (empty: everyone may review) | Comma-separated roles allowed to record review decisions and delete claims. |
 | `AUTO_APPROVE_MAX_SCORE` | no | `24` | Risk score (0–100) at or below which a claim with no HIGH/CRITICAL signal auto-approves. |
 | `DECISION_SLA_HOURS` | no | `24` | SLA window used by the metrics endpoint to report claims open past SLA. |
 | `RESEND_API_KEY` | no | — | Enables transactional email via Resend. Without it, notifications are a no-op (`UnconfiguredNotifier`). |
@@ -152,6 +167,11 @@ Writes synthetic hospital bill PDFs/PNGs (clean and deliberately fraudulent) to 
 | `POSTHOG_TIMEOUT_SECONDS` | no | `10` | HTTP timeout for PostHog calls. |
 | `NHCX_PARTICIPANT_CODE` | no | `claimguard.demo@hcx` | Participant code used by the stub NHCX gateway when submitting a FHIR claim bundle. |
 | `PORT` | no | `8080` | HTTP port Spring Boot listens on. |
+| `SENTRY_DSN` | no | — | Enables Sentry error reporting. Empty means Sentry is inert. `send-default-pii` is forced false because this service handles claim data. |
+| `SENTRY_ENVIRONMENT` | no | `local` | Environment tag on Sentry events. |
+| `SENTRY_TRACES_SAMPLE_RATE` | no | `0.0` | Performance-trace sampling rate. |
+| `API_DOCS_ENABLED` | no | `false` | Serves `/docs`, `/redoc` and `/v3/api-docs`. Off by default so the endpoint surface isn't published; set `true` locally to browse the API. |
+| `STACK_EXTRA_POWERED_BY` | no | — | Extra tokens appended to the derived `X-Powered-By` header. Everything else in that header is read from the running JVM. |
 
 ### Frontend (`frontend/.env`)
 
@@ -161,7 +181,6 @@ Writes synthetic hospital bill PDFs/PNGs (clean and deliberately fraudulent) to 
 | `AUTH_ZITADEL_ID`, `AUTH_ZITADEL_SECRET`, `AUTH_ZITADEL_ISSUER` | yes | Zitadel OIDC application credentials/issuer used by the NextAuth Zitadel provider (also used to refresh access tokens). |
 | `NEXT_PUBLIC_API_URL` | yes | Backend base URL, used client-side and as the fallback for server-side backend calls. |
 | `BACKEND_URL` | no | Server-side-only override for the backend base URL (falls back to `NEXT_PUBLIC_API_URL`). Use this when the server and browser reach the backend at different addresses. |
-| `STACK_SERVER_HEADER` | no | If set, added as a response header by `next.config.ts`. |
 | `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY` | no | Client-side PostHog product analytics. |
 | `NEXT_PUBLIC_TAWK_PROPERTY_ID`, `NEXT_PUBLIC_TAWK_WIDGET_ID` | no | Tawk.to support chat widget. |
 
@@ -176,9 +195,10 @@ All routes below are under the Spring Boot backend and, when `OIDC_ISSUER_URI` i
 | `GET` | `/api/me` | Current authenticated principal (subject + claims), or `{"authenticated": false}`. |
 | `GET` | `/api/settings` | Read-only settings snapshot for the frontend. |
 | `POST` | `/api/claims` | Create a claim (reference/claimant/note; reference auto-generated if blank). |
-| `GET` | `/api/claims` | List all claims (summary view). |
-| `GET` | `/api/claims/queue/review` | List claims currently needing review. |
+| `GET` | `/api/claims` | List claims (summary view), paged: `?page=` (default 0), `?size=` (default 50, max 200). Returns `{items, page, size, totalItems, totalPages}`. |
+| `GET` | `/api/claims/queue/review` | List claims currently needing review, paged like `/api/claims`. |
 | `GET` | `/api/claims/{id}` | Claim detail — documents, extraction, risk, decision. |
+| `GET` | `/api/claims/{id}/status` | Cheap status snapshot (`status`, `updatedAt`, `documentCount`, `processing`) for polling while documents are read. |
 | `PUT` | `/api/claims/{id}` | Update a claim's editable fields/status. |
 | `DELETE` | `/api/claims/{id}` | Delete a claim. |
 | `POST` | `/api/claims/{id}/documents` | Upload a document (multipart `file`; optional `X-Device-Fingerprint` header for the shared-device fraud signal). |
@@ -192,19 +212,39 @@ All routes below are under the Spring Boot backend and, when `OIDC_ISSUER_URI` i
 | `GET` | `/api/claims/{claimId}/fhir` | Build and return a FHIR R4 claim bundle (`application/fhir+json`). |
 | `POST` | `/api/claims/{claimId}/nhcx` | Submit the claim's FHIR bundle to the (stub) NHCX gateway. |
 | `GET` | `/api/audit` | Recent audit events (`?limit=`, default 100, max 500). |
+| `GET` | `/api/audit/page` | Audit events paged: `?page=`, `?size=` (default 100, max 500). |
 | `GET` | `/api/audit/claims/{claimId}` | Audit events for one claim. |
-| `GET` | `/api/audit/verify` | Re-derive and verify the audit hash chain end to end. |
+| `GET` | `/api/audit/verify` | Verify the audit hash chain from the last stored checkpoint and advance it. |
 | `GET` | `/api/audit/export` | Export the audit log as CSV. |
 | `GET` | `/api/metrics` | Dashboard metrics: straight-through rate, leakage caught, SLA, risk band and top-signal breakdowns. |
+| `GET` | `/api/stack` | Unauthenticated. Runtime-derived stack (Tomcat, Servlet, Spring Boot, Spring, Java versions) read from the live JVM. The frontend middleware mirrors these onto its own responses so one domain advertises the whole stack. |
+
+### Browsable API documentation
+
+Generated by springdoc from the running controllers, so it cannot drift from the code. All three are
+unauthenticated, and all three can be switched off with `API_DOCS_ENABLED=false`.
+
+| Path | What it serves |
+|---|---|
+| `/docs` | Swagger UI (bundled locally, works offline). `/swagger-ui.html` still redirects here. |
+| `/redoc` | ReDoc rendering the same spec (loads its bundle from a CDN, so it needs internet). |
+| `/v3/api-docs` | The raw OpenAPI 3.1 document. |
 
 ## What's not set up yet
 
 Being upfront about gaps rather than implying they exist:
 
-- **No CI.** There's no GitHub Actions workflow in this repository yet — tests and builds run
-  locally only.
-- **No deploy pipeline.** Railway (backend) and Vercel (frontend) are the intended targets per
-  `STACK.md`, but no deploy configuration exists in this repo yet.
-- **No Sentry.** Error monitoring isn't wired up on either side.
-- **No Swagger/OpenAPI.** The API surface above was compiled by reading the `@RestController`
-  classes directly; there's no generated/browsable API documentation yet.
+- **No deploy pipeline.** CI builds and tests both trees, but nothing is deployed. Railway (backend)
+  and Vercel (frontend) are the intended targets per `STACK.md`; deploy jobs are deliberately not
+  wired up yet.
+- **No per-user or per-tenant scoping.** Any signed-in user can see and act on every claim. This is
+  the one gap that must close before a pilot, and it needs a product decision first — scope by user,
+  or by Zitadel organisation?
+- **Extraction is not durable.** Jobs run on an in-process thread pool behind the `ExtractionQueue`
+  interface. `ExtractionRecovery` re-queues unfinished rows on boot, but this means **only one
+  backend instance may run at a time** — two would double-process documents. Upstash QStash is the
+  intended fix.
+- **AI-generated image detection never fires.** The `AiImageDetector` interface exists but no free
+  provider is wired in.
+- **NHCX submission is a stub.** Bundles are real FHIR R4 and NHCX-shaped, but nothing is
+  transmitted; no exchange endpoint is configured.

@@ -110,28 +110,38 @@ public class FraudAssessmentService {
         List<FraudSignal> found = new ArrayList<>();
 
         if (document.getContentSha256() != null) {
-            for (ClaimDocument other : documents.findDuplicatesByHash(document.getContentSha256(), claim.getId())) {
+            for (ClaimDocument other : documents.findDuplicatesByHash(document.getContentSha256(), document.getId())) {
+                boolean sameClaim = other.getClaim().getId().equals(claim.getId());
                 found.add(SignalBuilder.of(claim.getId(), document.getId(), SignalType.EXACT_DUPLICATE,
-                        Severity.CRITICAL,
-                        "This exact file was already submitted on claim " + other.getClaim().getReference() + ".",
+                        sameClaim ? Severity.HIGH : Severity.CRITICAL,
+                        sameClaim
+                                ? "This exact file was already uploaded to this claim as "
+                                        + other.getOriginalFilename() + "."
+                                : "This exact file was already submitted on claim "
+                                        + other.getClaim().getReference() + ".",
                         Map.of("otherClaim", other.getClaim().getReference(),
-                                "otherDocument", other.getOriginalFilename())));
+                                "otherDocument", String.valueOf(other.getOriginalFilename()),
+                                "sameClaim", String.valueOf(sameClaim))));
             }
         }
 
         if (document.getPerceptualHash() != null && found.isEmpty()) {
-            for (ClaimDocument other : documents.findHashedOutsideClaim(claim.getId())) {
-                int distance = PerceptualHash.distance(document.getPerceptualHash(), other.getPerceptualHash());
-                if (distance <= NEAR_DUPLICATE_DISTANCE) {
-                    found.add(SignalBuilder.of(claim.getId(), document.getId(), SignalType.NEAR_DUPLICATE_IMAGE,
-                            Severity.HIGH,
-                            "This document looks near-identical to one on claim "
-                                    + other.getClaim().getReference() + ".",
-                            Map.of("otherClaim", other.getClaim().getReference(),
-                                    "hammingDistance", String.valueOf(distance))));
-                    break;
-                }
-            }
+            nearestByPerceptualHash(document.getPerceptualHash(), document.getId())
+                    .ifPresent(match -> documents.findById(match.documentId()).ifPresent(other -> {
+                        boolean sameClaim = other.getClaim().getId().equals(claim.getId());
+                        found.add(SignalBuilder.of(claim.getId(), document.getId(),
+                                SignalType.NEAR_DUPLICATE_IMAGE,
+                                sameClaim ? Severity.MEDIUM : Severity.HIGH,
+                                sameClaim
+                                        ? "This document looks near-identical to "
+                                                + other.getOriginalFilename() + " on this claim."
+                                        : "This document looks near-identical to one on claim "
+                                                + other.getClaim().getReference() + ".",
+                                Map.of("otherClaim", other.getClaim().getReference(),
+                                        "otherDocument", String.valueOf(other.getOriginalFilename()),
+                                        "sameClaim", String.valueOf(sameClaim),
+                                        "hammingDistance", String.valueOf(match.distance()))));
+                    }));
         }
 
         extractions.findByDocumentId(document.getId())
@@ -142,19 +152,37 @@ public class FraudAssessmentService {
         return found;
     }
 
+    private Optional<HashMatch> nearestByPerceptualHash(long hash, UUID documentId) {
+        List<Object[]> rows = documents.findNearestByPerceptualHash(hash, documentId, NEAR_DUPLICATE_DISTANCE);
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        Object[] row = rows.get(0);
+        return Optional.of(new HashMatch((UUID) row[0], ((Number) row[1]).intValue()));
+    }
+
+    private record HashMatch(UUID documentId, int distance) {
+    }
+
     private List<FraudSignal> invoiceSignals(Claim claim, ClaimDocument document, String invoice) {
         List<FraudSignal> found = new ArrayList<>();
         for (DocumentExtraction other : extractions.findByInvoiceNumberIgnoreCase(invoice)) {
-            UUID otherClaimId = other.getDocument().getClaim().getId();
-            if (otherClaimId.equals(claim.getId())) {
+            ClaimDocument otherDocument = other.getDocument();
+            if (otherDocument.getId().equals(document.getId())) {
                 continue;
             }
+            boolean sameClaim = otherDocument.getClaim().getId().equals(claim.getId());
             found.add(SignalBuilder.of(claim.getId(), document.getId(), SignalType.REUSED_INVOICE_NUMBER,
                     Severity.HIGH,
-                    "Invoice number " + invoice + " was already claimed on "
-                            + other.getDocument().getClaim().getReference() + ".",
+                    sameClaim
+                            ? "Invoice number " + invoice + " appears on two documents in this claim ("
+                                    + otherDocument.getOriginalFilename() + ")."
+                            : "Invoice number " + invoice + " was already claimed on "
+                                    + otherDocument.getClaim().getReference() + ".",
                     Map.of("invoiceNumber", invoice,
-                            "otherClaim", other.getDocument().getClaim().getReference())));
+                            "otherClaim", otherDocument.getClaim().getReference(),
+                            "otherDocument", String.valueOf(otherDocument.getOriginalFilename()),
+                            "sameClaim", String.valueOf(sameClaim))));
             break;
         }
         return found;

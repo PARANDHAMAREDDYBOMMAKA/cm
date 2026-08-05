@@ -1,5 +1,6 @@
 package com.claimguard.extraction;
 
+import com.claimguard.access.AccessPolicy;
 import com.claimguard.audit.AuditAction;
 import com.claimguard.audit.AuditService;
 import com.claimguard.claim.Claim;
@@ -11,10 +12,13 @@ import com.claimguard.claim.ClaimStatus;
 import com.claimguard.extraction.dto.ExtractionResponse;
 import com.claimguard.fraud.ClaimAssessmentRequestedEvent;
 import com.claimguard.support.Values;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,18 +33,39 @@ public class ExtractionStore {
     private final ClaimDocumentRepository documents;
     private final ClaimRepository claims;
     private final AuditService audit;
+    private final AccessPolicy access;
     private final ApplicationEventPublisher events;
+
+    private final String nodeId = UUID.randomUUID().toString();
+    private final Duration leaseDuration;
+    private final Duration pendingGrace;
+    private final Duration retryBackoff;
+    private final int maxAttempts;
 
     public ExtractionStore(DocumentExtractionRepository extractions,
             ClaimDocumentRepository documents,
             ClaimRepository claims,
             AuditService audit,
-            ApplicationEventPublisher events) {
+            AccessPolicy access,
+            ApplicationEventPublisher events,
+            @Value("${EXTRACTION_LEASE_SECONDS:900}") long leaseSeconds,
+            @Value("${EXTRACTION_PENDING_GRACE_SECONDS:300}") long pendingGraceSeconds,
+            @Value("${EXTRACTION_RETRY_BACKOFF_SECONDS:60}") long retryBackoffSeconds,
+            @Value("${EXTRACTION_MAX_ATTEMPTS:3}") int maxAttempts) {
         this.extractions = extractions;
         this.documents = documents;
         this.claims = claims;
         this.audit = audit;
+        this.access = access;
         this.events = events;
+        this.leaseDuration = Duration.ofSeconds(leaseSeconds);
+        this.pendingGrace = Duration.ofSeconds(pendingGraceSeconds);
+        this.retryBackoff = Duration.ofSeconds(retryBackoffSeconds);
+        this.maxAttempts = maxAttempts;
+    }
+
+    public int maxAttempts() {
+        return maxAttempts;
     }
 
     @Transactional
@@ -58,14 +83,39 @@ public class ExtractionStore {
         }
         extraction.setStatus(ExtractionStatus.PENDING);
         extraction.setError(null);
+        if (force) {
+            extraction.setAttempts(0);
+        }
+        clearLease(extraction);
+        extraction.setNextAttemptAt(null);
         return new QueueOutcome(ExtractionMapper.toResponse(extractions.save(extraction)), true);
     }
 
-    @Transactional(readOnly = true)
-    public List<UUID> findUnfinished() {
-        return extractions.findByStatusIn(List.of(ExtractionStatus.PENDING, ExtractionStatus.RUNNING)).stream()
-                .map(extraction -> extraction.getDocument().getId())
-                .toList();
+    @Transactional
+    public List<UUID> reclaimStalled(boolean afterRestart) {
+        Instant now = Instant.now();
+        Instant staleBefore = afterRestart ? now : now.minus(pendingGrace);
+        List<UUID> reclaimed = new ArrayList<>();
+        for (DocumentExtraction extraction : extractions.findStalled(now, staleBefore)) {
+            extraction.setStatus(ExtractionStatus.PENDING);
+            clearLease(extraction);
+            extractions.save(extraction);
+            reclaimed.add(extraction.getDocument().getId());
+        }
+        return reclaimed;
+    }
+
+    @Transactional
+    public List<UUID> reclaimRetryable() {
+        List<UUID> reclaimed = new ArrayList<>();
+        for (DocumentExtraction extraction : extractions.findRetryable(maxAttempts, Instant.now())) {
+            extraction.setStatus(ExtractionStatus.PENDING);
+            extraction.setNextAttemptAt(null);
+            clearLease(extraction);
+            extractions.save(extraction);
+            reclaimed.add(extraction.getDocument().getId());
+        }
+        return reclaimed;
     }
 
     @Transactional
@@ -78,8 +128,18 @@ public class ExtractionStore {
         if (extraction.getStatus() == ExtractionStatus.COMPLETED) {
             return Optional.empty();
         }
+        if (extraction.getStatus() == ExtractionStatus.RUNNING
+                && extraction.getLeaseExpiresAt() != null
+                && extraction.getLeaseExpiresAt().isAfter(Instant.now())
+                && !nodeId.equals(extraction.getLeaseOwner())) {
+            return Optional.empty();
+        }
         extraction.setStatus(ExtractionStatus.RUNNING);
         extraction.setError(null);
+        extraction.setAttempts(extraction.getAttempts() + 1);
+        extraction.setLeaseOwner(nodeId);
+        extraction.setLeaseExpiresAt(Instant.now().plus(leaseDuration));
+        extraction.setNextAttemptAt(null);
         extractions.save(extraction);
 
         ClaimDocument document = extraction.getDocument();
@@ -97,6 +157,8 @@ public class ExtractionStore {
             extraction.setModel(Values.truncate(result.model(), 128));
             extraction.setStatus(ExtractionStatus.COMPLETED);
             extraction.setError(null);
+            clearLease(extraction);
+            extraction.setNextAttemptAt(null);
             extractions.save(extraction);
             Claim claim = extraction.getDocument().getClaim();
             applyClaimStatus(claim);
@@ -116,13 +178,30 @@ public class ExtractionStore {
         extractions.findByDocumentId(documentId).ifPresent(extraction -> {
             extraction.setStatus(status);
             extraction.setError(Values.truncate(message, 2000));
+            clearLease(extraction);
+            extraction.setNextAttemptAt(nextAttemptAt(status, extraction.getAttempts()));
             extractions.save(extraction);
             Claim claim = extraction.getDocument().getClaim();
             applyClaimStatus(claim);
             audit.record(claim.getId(), claim.getReference(), AuditAction.EXTRACTION_FAILED,
                     "Could not read " + extraction.getDocument().getOriginalFilename() + ".",
-                    Map.of("status", status.name(), "error", String.valueOf(extraction.getError())));
+                    Map.of("status", status.name(),
+                            "attempt", String.valueOf(extraction.getAttempts()),
+                            "error", String.valueOf(extraction.getError())));
         });
+    }
+
+    private Instant nextAttemptAt(ExtractionStatus status, int attempts) {
+        if (status != ExtractionStatus.FAILED || attempts >= maxAttempts) {
+            return null;
+        }
+        long multiplier = 1L << Math.min(attempts - 1, 16);
+        return Instant.now().plus(retryBackoff.multipliedBy(Math.max(multiplier, 1)));
+    }
+
+    private static void clearLease(DocumentExtraction extraction) {
+        extraction.setLeaseOwner(null);
+        extraction.setLeaseExpiresAt(null);
     }
 
     @Transactional(readOnly = true)
@@ -151,9 +230,14 @@ public class ExtractionStore {
     }
 
     private ClaimDocument requireDocument(UUID claimId, UUID documentId) {
-        return documents.findById(documentId)
-                .filter(document -> document.getClaim().getId().equals(claimId))
+        ClaimDocument document = documents.findById(documentId)
+                .filter(candidate -> candidate.getClaim().getId().equals(claimId))
                 .orElseThrow(() -> new ClaimNotFoundException(documentId));
+        Claim claim = document.getClaim();
+        if (!access.canSee(claim.getOwnerSubject(), claim.getOwnerOrg())) {
+            throw new ClaimNotFoundException(documentId);
+        }
+        return document;
     }
 
     private void apply(DocumentExtraction extraction, DocumentReader.ExtractedDocument result) {

@@ -24,7 +24,7 @@ public class ExtractionRecovery implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        List<UUID> unfinished = store.findUnfinished();
+        List<UUID> unfinished = store.reclaimStalled(true);
         if (unfinished.isEmpty()) {
             return;
         }

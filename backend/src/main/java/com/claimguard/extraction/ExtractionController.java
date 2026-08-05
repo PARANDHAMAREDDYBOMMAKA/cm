@@ -2,6 +2,7 @@ package com.claimguard.extraction;
 
 import com.claimguard.extraction.dto.ExtractionResponse;
 import com.claimguard.extraction.dto.UpdateExtractionRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -11,9 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -43,11 +42,7 @@ public class ExtractionController {
     @PatchMapping
     public ExtractionResponse update(@PathVariable UUID claimId,
             @PathVariable UUID documentId,
-            @RequestBody UpdateExtractionRequest request) {
-        Map<String, String> fields = request.fields();
-        if (fields == null || fields.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No fields to update");
-        }
-        return store.applyEdits(claimId, documentId, fields);
+            @RequestBody @Valid UpdateExtractionRequest request) {
+        return store.applyEdits(claimId, documentId, request.fields());
     }
 }

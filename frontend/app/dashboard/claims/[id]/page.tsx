@@ -126,7 +126,11 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
                     <ExternalLink className="size-3.5" />
                     View
                   </a>
-                  <DeleteDocumentButton claimId={claim.id} documentId={document.id} />
+                  <DeleteDocumentButton
+                    claimId={claim.id}
+                    documentId={document.id}
+                    filename={document.filename}
+                  />
                 </div>
                 <ExtractionPanel
                   claimId={claim.id}
@@ -152,7 +156,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="animate-in mx-auto max-w-4xl">
-      <AutoRefresh active={processing} />
+      <AutoRefresh claimId={claim.id} active={processing} />
       <Link
         href="/dashboard/claims"
         className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-ink"
@@ -183,7 +187,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
               status: claim.status,
             }}
           />
-          <DeleteClaimButton claimId={claim.id} />
+          <DeleteClaimButton claimId={claim.id} reference={claim.reference} />
         </div>
       </div>
 

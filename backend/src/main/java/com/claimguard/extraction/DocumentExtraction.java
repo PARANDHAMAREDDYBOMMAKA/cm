@@ -113,6 +113,18 @@ public class DocumentExtraction {
     @Column(length = 2000)
     private String error;
 
+    @Column(nullable = false)
+    private int attempts;
+
+    @Column(name = "lease_owner", length = 128)
+    private String leaseOwner;
+
+    @Column(name = "lease_expires_at")
+    private Instant leaseExpiresAt;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, Check, Flag, Loader2 } from "lucide-react";
 import { proxyUrl } from "@/lib/api";
+import { networkMessage, problemMessage } from "@/lib/problem";
+import { useToast } from "@/components/ui/Toast";
 import type { ReviewAction } from "@/lib/decision";
 
 const ACTIONS: { action: ReviewAction; label: string; icon: typeof Check; className: string }[] = [
@@ -29,6 +31,7 @@ const ACTIONS: { action: ReviewAction; label: string; icon: typeof Check; classN
 
 export default function ReviewActions({ claimId, settled }: { claimId: string; settled: boolean }) {
   const router = useRouter();
+  const { notify } = useToast();
   const [note, setNote] = useState("");
   const [pending, setPending] = useState<ReviewAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,14 +47,19 @@ export default function ReviewActions({ claimId, settled }: { claimId: string; s
         body: JSON.stringify({ action, note }),
       });
       if (!response.ok) {
-        setError(`Could not record the review (${response.status}).`);
+        setError(await problemMessage(response, "Could not record the review"));
         return;
       }
       setNote("");
       setOpen(false);
+      notify({
+        tone: "success",
+        title: "Decision recorded",
+        description: ACTIONS.find((entry) => entry.action === action)?.label,
+      });
       router.refresh();
     } catch {
-      setError("Could not record the review. Is the backend running?");
+      setError(networkMessage("Could not record the review."));
     } finally {
       setPending(null);
     }
@@ -95,7 +103,11 @@ export default function ReviewActions({ claimId, settled }: { claimId: string; s
           </button>
         ))}
       </div>
-      {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
       {settled ? (
         <button
           type="button"

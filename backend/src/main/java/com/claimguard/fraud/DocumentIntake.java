@@ -1,18 +1,22 @@
 package com.claimguard.fraud;
 
 import com.claimguard.claim.ClaimDocument;
+import com.claimguard.claim.ClaimDocumentRepository;
 import com.claimguard.extraction.MimeTypes;
 import com.claimguard.extraction.PdfRasterizer;
 import com.claimguard.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Component
 public class DocumentIntake {
@@ -21,21 +25,44 @@ public class DocumentIntake {
 
     private final MetadataInspector inspector;
     private final DocumentForensicsRepository forensics;
+    private final ClaimDocumentRepository documents;
     private final PdfRasterizer rasterizer;
     private final StorageService storage;
 
     public DocumentIntake(MetadataInspector inspector,
             DocumentForensicsRepository forensics,
+            ClaimDocumentRepository documents,
             PdfRasterizer rasterizer,
             StorageService storage) {
         this.inspector = inspector;
         this.forensics = forensics;
+        this.documents = documents;
         this.rasterizer = rasterizer;
         this.storage = storage;
     }
 
+    public void applyContentHash(ClaimDocument document, byte[] content) {
+        document.setContentSha256(sha256(content));
+    }
+
+    @Transactional
+    public void fingerprint(UUID documentId) {
+        documents.findById(documentId).ifPresent(document -> {
+            if (document.getFingerprintedAt() != null && forensics.findByDocumentId(documentId).isPresent()) {
+                return;
+            }
+            byte[] content = download(document);
+            if (content == null) {
+                return;
+            }
+            applyFingerprints(document, content);
+            recordForensics(document, content);
+            documents.save(document);
+        });
+    }
+
     public void backfill(ClaimDocument document) {
-        boolean needsFingerprints = document.getContentSha256() == null;
+        boolean needsFingerprints = document.getFingerprintedAt() == null;
         boolean needsForensics = forensics.findByDocumentId(document.getId()).isEmpty();
         if (!needsFingerprints && !needsForensics) {
             return;
@@ -62,8 +89,11 @@ public class DocumentIntake {
     }
 
     public void applyFingerprints(ClaimDocument document, byte[] content) {
-        document.setContentSha256(sha256(content));
+        if (document.getContentSha256() == null) {
+            document.setContentSha256(sha256(content));
+        }
         document.setPerceptualHash(perceptualHash(content, document.getContentType()));
+        document.setFingerprintedAt(Instant.now());
     }
 
     public void recordForensics(ClaimDocument document, byte[] content) {

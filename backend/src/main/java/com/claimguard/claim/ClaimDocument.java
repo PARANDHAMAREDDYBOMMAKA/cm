@@ -51,6 +51,9 @@ public class ClaimDocument {
     @Column(name = "device_fingerprint", length = 128)
     private String deviceFingerprint;
 
+    @Column(name = "fingerprinted_at")
+    private Instant fingerprintedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -2,16 +2,19 @@ package com.claimguard.audit;
 
 import com.claimguard.audit.dto.AuditEventResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.io.Writer;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class AuditExporter {
 
     private static final String HEADER =
             "seq,recorded_at,claim_reference,actor,action,summary,details,previous_hash,hash\n";
+    private static final String FORMULA_PREFIXES = "=+-@\t\r";
 
     private final AuditLookup lookup;
     private final AuditService audit;
@@ -21,25 +24,40 @@ public class AuditExporter {
         this.audit = audit;
     }
 
-    @Transactional
-    public String toCsv() {
-        List<AuditEventResponse> events = lookup.all();
-        StringBuilder csv = new StringBuilder(HEADER);
-        for (AuditEventResponse event : events) {
-            csv.append(event.seq()).append(',')
-                    .append(quote(String.valueOf(event.createdAt()))).append(',')
-                    .append(quote(event.claimReference())).append(',')
-                    .append(quote(event.actor())).append(',')
-                    .append(quote(event.action())).append(',')
-                    .append(quote(event.summary())).append(',')
-                    .append(quote(flatten(event.details()))).append(',')
-                    .append(quote(event.previousHash())).append(',')
-                    .append(quote(event.hash())).append('\n');
+    public void writeCsv(Writer writer) throws IOException {
+        writer.write(HEADER);
+        AtomicLong exported = new AtomicLong();
+        try {
+            lookup.stream(event -> {
+                write(writer, event);
+                exported.incrementAndGet();
+            });
+        } catch (UncheckedIOException exception) {
+            throw exception.getCause();
         }
+        writer.flush();
         audit.record(null, null, AuditAction.AUDIT_EXPORTED,
                 "The audit trail was exported as CSV.",
-                Map.of("entries", String.valueOf(events.size())));
-        return csv.toString();
+                Map.of("entries", String.valueOf(exported.get())));
+    }
+
+    private static void write(Writer writer, AuditEventResponse event) {
+        String row = new StringBuilder()
+                .append(event.seq()).append(',')
+                .append(quote(String.valueOf(event.createdAt()))).append(',')
+                .append(quote(event.claimReference())).append(',')
+                .append(quote(event.actor())).append(',')
+                .append(quote(event.action())).append(',')
+                .append(quote(event.summary())).append(',')
+                .append(quote(flatten(event.details()))).append(',')
+                .append(quote(event.previousHash())).append(',')
+                .append(quote(event.hash())).append('\n')
+                .toString();
+        try {
+            writer.write(row);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     private static String flatten(Map<String, String> details) {
@@ -55,6 +73,10 @@ public class AuditExporter {
         if (value == null) {
             return "";
         }
-        return '"' + value.replace("\"", "\"\"") + '"';
+        String safe = value;
+        if (!safe.isEmpty() && FORMULA_PREFIXES.indexOf(safe.charAt(0)) >= 0) {
+            safe = "'" + safe;
+        }
+        return '"' + safe.replace("\"", "\"\"") + '"';
     }
 }

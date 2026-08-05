@@ -2,6 +2,7 @@ package com.claimguard.decision;
 
 import com.claimguard.decision.dto.DecisionResponse;
 import com.claimguard.decision.dto.ReviewRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,7 +30,7 @@ public class ReviewController {
     }
 
     @PostMapping("/review")
-    public DecisionResponse review(@PathVariable UUID claimId, @RequestBody ReviewRequest request) {
+    public DecisionResponse review(@PathVariable UUID claimId, @RequestBody @Valid ReviewRequest request) {
         return service.review(claimId, request);
     }
 }
