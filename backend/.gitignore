@@ -40,4 +40,4 @@ build/
 *.md
 
 ### Local storage ###
-storage/
+/storage/
