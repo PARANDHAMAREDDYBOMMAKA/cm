@@ -12,10 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description =
+  "ClaimGuard reads claim documents, catches duplicates and tampering, and auto-approves the clean ones with a tamper-evident audit trail.";
+
 export const metadata: Metadata = {
-  title: "ClaimGuard",
-  description:
-    "ClaimGuard reads claim documents, catches duplicates and tampering, and auto-approves the clean ones with a tamper-evident audit trail.",
+  metadataBase: new URL(process.env.AUTH_URL ?? "https://claimguard-pi.vercel.app"),
+  title: {
+    default: "ClaimGuard",
+    template: "%s · ClaimGuard",
+  },
+  description,
+  applicationName: "ClaimGuard",
+  openGraph: {
+    type: "website",
+    siteName: "ClaimGuard",
+    title: "ClaimGuard",
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ClaimGuard",
+    description,
+  },
 };
 
 export default function RootLayout({

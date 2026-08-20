@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
@@ -100,9 +101,12 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
                 <div className="flex items-center gap-3 px-5 py-3">
                   {isImage ? (
                     <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      <img
+                      <Image
                         src={contentUrl}
                         alt={document.filename}
+                        width={40}
+                        height={40}
+                        unoptimized
                         className="size-10 rounded-lg border border-border object-cover"
                       />
                     </a>

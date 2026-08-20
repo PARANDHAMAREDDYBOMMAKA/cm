@@ -1,4 +1,6 @@
 import { LogOut } from "lucide-react";
+import MobileNav from "@/components/dashboard/MobileNav";
+import PageTitle from "@/components/dashboard/PageTitle";
 import { auth, isAuthConfigured, signIn, signOut } from "@/lib/auth";
 
 function initials(value: string): string {
@@ -14,8 +16,11 @@ export default async function Topbar() {
   const label = user?.email ?? user?.name ?? "";
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
-      <span className="text-sm font-medium text-secondary">Console</span>
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <MobileNav />
+        <PageTitle />
+      </div>
 
       {user ? (
         <div className="flex items-center gap-3">
@@ -23,7 +28,7 @@ export default async function Topbar() {
             <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
               {initials(label)}
             </span>
-            <span className="hidden text-sm text-secondary sm:inline">{label}</span>
+            <span className="hidden max-w-[16ch] truncate text-sm text-secondary md:inline">{label}</span>
           </div>
           <form
             action={async () => {
@@ -36,7 +41,7 @@ export default async function Topbar() {
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-secondary transition-colors hover:bg-canvas hover:text-ink"
             >
               <LogOut className="size-4" />
-              Sign out
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </form>
         </div>

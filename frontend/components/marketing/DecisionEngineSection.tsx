@@ -18,7 +18,7 @@ const bands = [
 export default function DecisionEngineSection() {
   return (
     <section id="decisioning" className="border-b border-border bg-surface py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight text-ink">Risk scoring & decision</h2>
           <p className="mt-3 text-base leading-relaxed text-secondary">
@@ -32,6 +32,7 @@ export default function DecisionEngineSection() {
             <div className="border-b border-border px-6 py-4">
               <h3 className="text-sm font-semibold text-ink">Signal severity weights</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
@@ -48,12 +49,14 @@ export default function DecisionEngineSection() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-border bg-canvas">
             <div className="border-b border-border px-6 py-4">
               <h3 className="text-sm font-semibold text-ink">Risk bands & outcome</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
@@ -72,6 +75,7 @@ export default function DecisionEngineSection() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 

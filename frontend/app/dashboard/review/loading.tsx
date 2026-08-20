@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div className="mx-auto max-w-6xl animate-pulse">
       <div className="h-8 w-44 rounded-lg bg-border" />
-      <div className="mt-2 h-4 w-72 rounded bg-border" />
+      <div className="mt-2 h-4 w-72 max-w-full rounded bg-border" />
       <div className="mt-6 overflow-hidden rounded-xl border border-border bg-surface">
         {Array.from({ length: 6 }).map((_, index) => (
           <div key={index} className="flex items-center gap-4 border-b border-border px-5 py-4 last:border-0">

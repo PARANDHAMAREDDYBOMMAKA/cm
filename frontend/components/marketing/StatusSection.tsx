@@ -24,7 +24,7 @@ const items = [
 export default function StatusSection() {
   return (
     <section id="status" className="bg-canvas py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight text-ink">Where this is today</h2>
           <p className="mt-3 text-base leading-relaxed text-secondary">

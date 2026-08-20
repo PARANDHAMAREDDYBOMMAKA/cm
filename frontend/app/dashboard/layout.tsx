@@ -13,8 +13,13 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  if (isAuthConfigured && session?.error) {
-    redirect("/signin?expired=1");
+  if (isAuthConfigured) {
+    if (session?.error) {
+      redirect("/signin?expired=1");
+    }
+    if (!session?.user) {
+      redirect("/signin");
+    }
   }
 
   return (
@@ -26,7 +31,7 @@ export default async function DashboardLayout({
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar />
-          <main className="flex-1 px-6 py-8">{children}</main>
+          <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
         </div>
       </div>
     </ToastProvider>

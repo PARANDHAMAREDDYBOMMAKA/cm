@@ -62,7 +62,7 @@ const features = [
 export default function Features() {
   return (
     <section id="features" className="bg-canvas py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-ink">
             Everything a claims desk needs to trust a decision

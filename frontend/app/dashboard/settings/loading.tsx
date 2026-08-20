@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div className="mx-auto max-w-4xl animate-pulse">
       <div className="h-8 w-32 rounded-lg bg-border" />
-      <div className="mt-2 h-4 w-80 rounded bg-border" />
+      <div className="mt-2 h-4 w-80 max-w-full rounded bg-border" />
       <div className="mt-6 h-24 rounded-xl border border-border bg-surface" />
       <div className="mt-6 overflow-hidden rounded-xl border border-border bg-surface">
         {Array.from({ length: 5 }).map((_, index) => (

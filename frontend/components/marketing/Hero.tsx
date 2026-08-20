@@ -30,7 +30,7 @@ export default function Hero({
     <section className="relative overflow-hidden border-b border-border bg-canvas">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[32rem] bg-gradient-to-b from-brand-soft to-transparent" />
 
-      <div className="mx-auto max-w-6xl px-6 pb-20 pt-20 sm:pb-28 sm:pt-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-20 pt-20 sm:pb-28 sm:pt-28">
         <div className="animate-in mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-secondary">
             Claims intelligence for hospitals and TPAs

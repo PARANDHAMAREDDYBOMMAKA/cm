@@ -29,7 +29,7 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section id="how" className="border-b border-border bg-surface py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-ink">
             One pipeline, from upload to decision
