@@ -2,6 +2,8 @@ package com.claimguard.ai;
 
 public class AiRequestException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     private final int status;
 
     public AiRequestException(String message, Throwable cause) {

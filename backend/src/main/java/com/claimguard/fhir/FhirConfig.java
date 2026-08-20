@@ -10,8 +10,6 @@ import org.springframework.context.annotation.Lazy;
 @Configuration
 public class FhirConfig {
 
-    // HAPI's R4 structure registry is a few hundred MB of heap. Only /fhir and
-    // /nhcx need it, so keep it out of startup and off the 512 MB baseline.
     @Bean
     @Lazy
     FhirContext fhirContext() {

@@ -201,7 +201,7 @@ public class ClaimService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The uploaded file is empty.");
         }
         if (content.length > maxUploadBytes) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+            throw new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE,
                     "The uploaded file exceeds the maximum allowed size.");
         }
         String contentType = UploadPolicy.sniff(content);

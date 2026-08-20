@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -68,7 +69,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ProblemDetail onUploadTooLarge(MaxUploadSizeExceededException exception) {
-        return problem(HttpStatus.PAYLOAD_TOO_LARGE, "File too large",
+        return problem(HttpStatus.CONTENT_TOO_LARGE, "File too large",
                 "The uploaded file exceeds the maximum allowed size.");
     }
 
@@ -95,6 +96,11 @@ public class ApiExceptionHandler {
         String reason = exception.getReason();
         return problem(status, HttpStatus.valueOf(status.value()).getReasonPhrase(),
                 reason != null ? reason : "The request could not be completed.");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ProblemDetail onNoResource(NoResourceFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, "Not found", "No handler for that path.");
     }
 
     @ExceptionHandler(Exception.class)
