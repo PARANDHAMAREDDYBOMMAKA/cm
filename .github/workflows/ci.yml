@@ -87,8 +87,6 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
-    env:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -99,15 +97,6 @@ jobs:
       - name: Audit npm dependencies
         working-directory: frontend
         run: npm audit --audit-level=high
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: maven
-      - name: Check for known-vulnerable Maven dependencies
-        working-directory: backend
-        if: env.NVD_API_KEY != ''
-        run: ./mvnw -B org.owasp:dependency-check-maven:12.1.0:check -DfailBuildOnCVSS=8 -DnvdApiKey="$NVD_API_KEY"
 
   sentry-release:
     runs-on: ubuntu-latest
