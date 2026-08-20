@@ -36,6 +36,11 @@ sentry:
   traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.0}
   send-default-pii: false
 
+logging:
+  level:
+    org.apache.pdfbox.pdmodel.font: ERROR
+    org.apache.fontbox: ERROR
+
 management:
   endpoints:
     web:

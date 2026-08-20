@@ -1,7 +1,9 @@
 package com.claimguard.fraud;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -16,5 +18,7 @@ public interface FraudSignalRepository extends JpaRepository<FraudSignal, UUID> 
     @Query("select s.type, count(s) from FraudSignal s group by s.type order by count(s) desc")
     List<Object[]> countByType();
 
-    void deleteByClaimId(UUID claimId);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from FraudSignal s where s.claimId = :claimId")
+    void deleteByClaimId(@Param("claimId") UUID claimId);
 }

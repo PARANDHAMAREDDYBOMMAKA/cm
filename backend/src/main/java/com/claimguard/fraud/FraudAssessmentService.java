@@ -73,7 +73,7 @@ public class FraudAssessmentService {
 
     @Transactional
     public void assess(UUID claimId) {
-        Claim claim = claims.findById(claimId).orElse(null);
+        Claim claim = claims.findAndLock(claimId).orElse(null);
         if (claim == null) {
             return;
         }
