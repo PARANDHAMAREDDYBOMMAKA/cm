@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink, FileText } from "lucide-react";
 import { backendFetch, classifyFailure } from "@/lib/backend";
 import LoadError from "@/components/dashboard/LoadError";
 import { proxyUrl } from "@/lib/api";
@@ -13,8 +13,8 @@ import ExtractionPanel from "@/components/claims/ExtractionPanel";
 import NhcxPanel from "@/components/claims/NhcxPanel";
 import AutoRefresh from "@/components/claims/AutoRefresh";
 import ClaimTabs from "@/components/claims/ClaimTabs";
-import ClaimFacts from "@/components/claims/ClaimFacts";
-import { isRunning, type Extraction } from "@/lib/extraction";
+import ConsolidatedFacts from "@/components/claims/ConsolidatedFacts";
+import { formatAmount, isRunning, type Extraction } from "@/lib/extraction";
 import RiskPanel from "@/components/claims/RiskPanel";
 import DecisionPanel from "@/components/claims/DecisionPanel";
 import AuditTrail from "@/components/audit/AuditTrail";
@@ -47,9 +47,28 @@ type ClaimDetail = {
   decision?: Decision | null;
 };
 
-function primaryExtraction(documents: DocumentItem[]): Extraction | null {
-  const completed = documents.find((document) => document.extraction?.status === "COMPLETED");
-  return completed?.extraction ?? documents[0]?.extraction ?? null;
+function ExtractionSummary({ extraction }: { extraction: Extraction | null }) {
+  if (!extraction) {
+    return <span className="shrink-0 text-xs text-subtle">Not read</span>;
+  }
+  if (isRunning(extraction)) {
+    return <span className="shrink-0 text-xs text-secondary">Reading…</span>;
+  }
+  if (extraction.status === "FAILED") {
+    return (
+      <span className="shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">
+        Failed
+      </span>
+    );
+  }
+  if (extraction.status !== "COMPLETED") {
+    return <span className="shrink-0 text-xs text-subtle">{extraction.status}</span>;
+  }
+  return (
+    <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
+      {formatAmount(extraction.totalAmount, extraction.currency)}
+    </span>
+  );
 }
 
 export default async function ClaimDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -75,7 +94,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
   const overview = (
     <>
-      <ClaimFacts extraction={primaryExtraction(claim.documents)} />
+      <ConsolidatedFacts documents={claim.documents} />
       <DecisionPanel claimId={claim.id} decision={claim.decision} />
       <RiskPanel risk={claim.risk} />
       <div className="mt-6">
@@ -92,55 +111,63 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
           <p className="mt-1 text-sm text-muted">Upload a bill below and it will be read automatically.</p>
         </div>
       ) : (
-        <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-          {claim.documents.map((document) => {
+        <ul className="mt-4 space-y-3">
+          {claim.documents.map((document, index) => {
             const contentUrl = proxyUrl(`/api/claims/${claim.id}/documents/${document.id}/content`);
             const isImage = (document.contentType ?? "").startsWith("image/");
+            const extraction = document.extraction;
             return (
-              <li key={document.id}>
-                <div className="flex items-center gap-3 px-5 py-3">
-                  {isImage ? (
-                    <a href={contentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <li key={document.id} className="overflow-hidden rounded-xl border border-border bg-surface">
+                <details open={claim.documents.length === 1 || index === 0} className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3 hover:bg-canvas">
+                    {isImage ? (
                       <Image
                         src={contentUrl}
                         alt={document.filename}
                         width={40}
                         height={40}
                         unoptimized
-                        className="size-10 rounded-lg border border-border object-cover"
+                        className="size-10 shrink-0 rounded-lg border border-border object-cover"
                       />
-                    </a>
-                  ) : (
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
-                      <FileText className="size-4" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
-                    <p className="text-xs text-subtle">
-                      {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
-                    </p>
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
+                        <FileText className="size-4" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{document.filename}</p>
+                      <p className="text-xs text-subtle">
+                        {document.contentType ?? "unknown"} · {formatBytes(document.sizeBytes)}
+                      </p>
+                    </div>
+                    <ExtractionSummary extraction={extraction} />
+                    <ChevronDown className="size-4 shrink-0 text-subtle transition-transform group-open:rotate-180" />
+                  </summary>
+
+                  <div className="border-t border-border">
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-2.5">
+                      <a
+                        href={contentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
+                      >
+                        <ExternalLink className="size-3.5" />
+                        View
+                      </a>
+                      <DeleteDocumentButton
+                        claimId={claim.id}
+                        documentId={document.id}
+                        filename={document.filename}
+                      />
+                    </div>
+                    <ExtractionPanel
+                      claimId={claim.id}
+                      documentId={document.id}
+                      extraction={document.extraction}
+                    />
                   </div>
-                  <a
-                    href={contentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-canvas hover:text-ink"
-                  >
-                    <ExternalLink className="size-3.5" />
-                    View
-                  </a>
-                  <DeleteDocumentButton
-                    claimId={claim.id}
-                    documentId={document.id}
-                    filename={document.filename}
-                  />
-                </div>
-                <ExtractionPanel
-                  claimId={claim.id}
-                  documentId={document.id}
-                  extraction={document.extraction}
-                />
+                </details>
               </li>
             );
           })}
