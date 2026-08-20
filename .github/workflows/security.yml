@@ -1,11 +1,8 @@
 name: Security scan
 
-# The OWASP scan needs the full NVD feed (~380k records). That is far too slow
-# to sit on the push path, and CVE data changes daily rather than per-commit —
-# so it runs on a schedule instead, with the feed cached between runs.
 on:
   schedule:
-    - cron: '17 3 * * 1'  # Mondays 03:17 UTC
+    - cron: '17 3 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -26,9 +23,6 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Rolling cache: the unique key always writes a fresh entry, restore-keys
-      # picks up the newest previous one. dependency-check then applies an
-      # incremental delta instead of re-downloading all 380k records.
       - name: Cache NVD feed
         uses: actions/cache@v4
         with:

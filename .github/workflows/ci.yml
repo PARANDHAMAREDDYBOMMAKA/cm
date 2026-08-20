@@ -134,8 +134,6 @@ jobs:
       - name: Install Vercel CLI
         if: env.VERCEL_TOKEN != ''
         run: npm install -g vercel@latest
-      # Pulls the Production env vars (incl. NEXT_PUBLIC_API_URL, which Next
-      # inlines into the client bundle) so the CI build matches a dashboard build.
       - name: Pull Vercel environment
         if: env.VERCEL_TOKEN != ''
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
