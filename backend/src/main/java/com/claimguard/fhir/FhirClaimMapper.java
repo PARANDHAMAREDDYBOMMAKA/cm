@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -33,7 +34,7 @@ public class FhirClaimMapper {
 
     private final FhirContext fhir;
 
-    public FhirClaimMapper(FhirContext fhir) {
+    public FhirClaimMapper(@Lazy FhirContext fhir) {
         this.fhir = fhir;
     }
 
