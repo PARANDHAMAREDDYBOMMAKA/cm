@@ -46,11 +46,16 @@ public class PdfRasterizer {
             int rendered = Math.min(total, maxPages);
             PDFRenderer renderer = new PDFRenderer(document);
 
+            // Scale each page down as soon as it is rendered and share the pixel
+            // budget across them, so we never hold a full-resolution stack of every
+            // page and a full-resolution combined image at the same time.
+            long pixelsPerPage = Math.max(1, maxPixels / rendered);
             List<BufferedImage> pages = new ArrayList<>(rendered);
             for (int index = 0; index < rendered; index++) {
-                pages.add(renderer.renderImageWithDPI(index, dpi, ImageType.RGB));
+                pages.add(fit(renderer.renderImageWithDPI(index, dpi, ImageType.RGB), pixelsPerPage));
             }
-            BufferedImage combined = fit(stack(pages));
+            BufferedImage combined = stack(pages);
+            pages.clear();
             return new Result(toJpeg(combined), JPEG, total, rendered);
         } catch (IOException exception) {
             throw new UncheckedIOException("Could not read the PDF", exception);
@@ -78,14 +83,14 @@ public class PdfRasterizer {
         return combined;
     }
 
-    private BufferedImage fit(BufferedImage source) {
+    private BufferedImage fit(BufferedImage source, long pixelBudget) {
         long pixels = (long) source.getWidth() * source.getHeight();
         double ratio = 1.0;
         if (source.getWidth() > maxWidth) {
             ratio = (double) maxWidth / source.getWidth();
         }
-        if (pixels * ratio * ratio > maxPixels) {
-            ratio = Math.sqrt((double) maxPixels / pixels);
+        if (pixels * ratio * ratio > pixelBudget) {
+            ratio = Math.sqrt((double) pixelBudget / pixels);
         }
         if (ratio >= 1.0) {
             return source;

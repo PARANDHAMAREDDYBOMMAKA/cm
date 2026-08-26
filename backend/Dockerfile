@@ -22,7 +22,18 @@ WORKDIR /app
 
 COPY --from=build --chown=claimguard:claimguard /build/app.jar /app/app.jar
 
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Djava.awt.headless=true -Dfile.encoding=UTF-8"
+# Sized for a 512 MB instance: the heap ceiling has to leave room for metaspace,
+# code cache, thread stacks and PDFBox/S3 direct buffers, or the container OOM
+# killer takes the process (exit 137) before the JVM ever sees an OutOfMemoryError.
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=45 \
+  -XX:MaxMetaspaceSize=160m \
+  -XX:ReservedCodeCacheSize=48m \
+  -XX:MaxDirectMemorySize=32m \
+  -Xss512k \
+  -XX:+UseSerialGC \
+  -XX:+ExitOnOutOfMemoryError \
+  -Djava.awt.headless=true \
+  -Dfile.encoding=UTF-8"
 
 EXPOSE 8080
 

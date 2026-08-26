@@ -19,6 +19,13 @@ spring:
 
 server:
   port: ${PORT:8080}
+  tomcat:
+    # A 0.5 CPU instance cannot use 200 request threads, and each thread handling
+    # an upload holds the whole file on the heap. Cap it so concurrency is bounded.
+    threads:
+      max: ${SERVER_MAX_THREADS:24}
+      min-spare: 4
+    max-connections: ${SERVER_MAX_CONNECTIONS:200}
 
 springdoc:
   api-docs:

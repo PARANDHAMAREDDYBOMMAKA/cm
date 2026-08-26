@@ -14,6 +14,7 @@ import com.claimguard.fraud.ClaimAssessmentRequestedEvent;
 import com.claimguard.support.Values;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,10 @@ import java.util.UUID;
 
 @Service
 public class ExtractionStore {
+
+    // Reclaim in batches: an unbounded requeue after a crash replays every stalled
+    // job at once, which is how one out-of-memory restart turns into a restart loop.
+    private static final Limit RECLAIM_BATCH = Limit.of(25);
 
     private final DocumentExtractionRepository extractions;
     private final ClaimDocumentRepository documents;
@@ -96,7 +101,7 @@ public class ExtractionStore {
         Instant now = Instant.now();
         Instant staleBefore = afterRestart ? now : now.minus(pendingGrace);
         List<UUID> reclaimed = new ArrayList<>();
-        for (DocumentExtraction extraction : extractions.findStalled(now, staleBefore)) {
+        for (DocumentExtraction extraction : extractions.findStalled(now, staleBefore, RECLAIM_BATCH)) {
             extraction.setStatus(ExtractionStatus.PENDING);
             clearLease(extraction);
             extractions.save(extraction);
@@ -108,7 +113,7 @@ public class ExtractionStore {
     @Transactional
     public List<UUID> reclaimRetryable() {
         List<UUID> reclaimed = new ArrayList<>();
-        for (DocumentExtraction extraction : extractions.findRetryable(maxAttempts, Instant.now())) {
+        for (DocumentExtraction extraction : extractions.findRetryable(maxAttempts, Instant.now(), RECLAIM_BATCH)) {
             extraction.setStatus(ExtractionStatus.PENDING);
             extraction.setNextAttemptAt(null);
             clearLease(extraction);
