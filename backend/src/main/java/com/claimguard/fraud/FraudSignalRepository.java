@@ -18,7 +18,7 @@ public interface FraudSignalRepository extends JpaRepository<FraudSignal, UUID> 
     @Query("select s.type, count(s) from FraudSignal s group by s.type order by count(s) desc")
     List<Object[]> countByType();
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("delete from FraudSignal s where s.claimId = :claimId")
     void deleteByClaimId(@Param("claimId") UUID claimId);
 }
