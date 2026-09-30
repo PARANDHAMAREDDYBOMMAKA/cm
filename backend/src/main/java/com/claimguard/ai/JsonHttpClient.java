@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 
@@ -24,10 +25,17 @@ public class JsonHttpClient {
     }
 
     public JsonNode post(String path, Object body, Map<String, String> headers) {
+        return send(client.post().uri(path), body, headers);
+    }
+
+    public JsonNode post(URI uri, Object body, Map<String, String> headers) {
+        return send(client.post().uri(uri), body, headers);
+    }
+
+    private JsonNode send(RestClient.RequestBodySpec spec, Object body, Map<String, String> headers) {
         Result result;
         try {
-            result = client.post()
-                    .uri(path)
+            result = spec
                     .contentType(MediaType.APPLICATION_JSON)
                     .headers(target -> headers.forEach(target::set))
                     .body(mapper.writeValueAsString(body))

@@ -29,7 +29,7 @@ public class SecurityConfig {
 
         http
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/actuator/health/**", "/api/ping", "/api/stack", "/v3/api-docs/**",
+                        .requestMatchers("/actuator/health/**", "/api/ping", "/api/stack", "/api/queue/**", "/v3/api-docs/**",
                                 "/swagger-ui/**", "/swagger-ui.html", "/docs", "/docs/**",
                                 "/redoc", "/redoc.html").permitAll()
                         .anyRequest().authenticated())

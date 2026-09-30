@@ -4,11 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RateLimiterTest {
+class LocalRateLimiterTest {
 
     @Test
     void allowsTheBurstThenRefusesFurtherRequests() {
-        RateLimiter limiter = new RateLimiter(3, 1);
+        RateLimiter limiter = new LocalRateLimiter(3, 1);
 
         assertThat(limiter.tryAcquire("alice")).isTrue();
         assertThat(limiter.tryAcquire("alice")).isTrue();
@@ -18,7 +18,7 @@ class RateLimiterTest {
 
     @Test
     void bucketsAreHeldPerSubject() {
-        RateLimiter limiter = new RateLimiter(1, 1);
+        RateLimiter limiter = new LocalRateLimiter(1, 1);
 
         assertThat(limiter.tryAcquire("alice")).isTrue();
         assertThat(limiter.tryAcquire("alice")).isFalse();
@@ -27,7 +27,7 @@ class RateLimiterTest {
 
     @Test
     void unauthenticatedCallersShareOneBucketRatherThanBypassingTheLimit() {
-        RateLimiter limiter = new RateLimiter(1, 1);
+        RateLimiter limiter = new LocalRateLimiter(1, 1);
 
         assertThat(limiter.tryAcquire(null)).isTrue();
         assertThat(limiter.tryAcquire(null)).isFalse();
@@ -35,7 +35,7 @@ class RateLimiterTest {
 
     @Test
     void refillsOverTime() throws InterruptedException {
-        RateLimiter limiter = new RateLimiter(1, 60_000);
+        RateLimiter limiter = new LocalRateLimiter(1, 60_000);
 
         assertThat(limiter.tryAcquire("alice")).isTrue();
         assertThat(limiter.tryAcquire("alice")).isFalse();

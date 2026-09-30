@@ -4,6 +4,8 @@ import com.claimguard.analytics.Analytics;
 import com.claimguard.audit.AuditLookup;
 import com.claimguard.audit.dto.AuditVerificationResponse;
 import com.claimguard.extraction.DocumentReader;
+import com.claimguard.extraction.ExtractionQueue;
+import com.claimguard.extraction.QStashExtractionQueue;
 import com.claimguard.fhir.NhcxGateway;
 import com.claimguard.fraud.AiImageDetector;
 import com.claimguard.fraud.EmbeddingProvider;
@@ -12,6 +14,8 @@ import com.claimguard.settings.dto.CapabilityResponse;
 import com.claimguard.settings.dto.SettingResponse;
 import com.claimguard.settings.dto.SettingsResponse;
 import com.claimguard.storage.StorageService;
+import com.claimguard.support.RateLimiter;
+import com.claimguard.support.RedisRateLimiter;
 import com.claimguard.storage.UnconfiguredStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,6 +29,8 @@ public class SettingsService {
     private final EmbeddingProvider embeddings;
     private final AiImageDetector aiDetector;
     private final StorageService storage;
+    private final ExtractionQueue queue;
+    private final RateLimiter uploadRateLimiter;
     private final Notifier notifier;
     private final Analytics analytics;
     private final NhcxGateway nhcx;
@@ -39,6 +45,8 @@ public class SettingsService {
             EmbeddingProvider embeddings,
             AiImageDetector aiDetector,
             StorageService storage,
+            ExtractionQueue queue,
+            RateLimiter uploadRateLimiter,
             Notifier notifier,
             Analytics analytics,
             NhcxGateway nhcx,
@@ -52,6 +60,8 @@ public class SettingsService {
         this.embeddings = embeddings;
         this.aiDetector = aiDetector;
         this.storage = storage;
+        this.queue = queue;
+        this.uploadRateLimiter = uploadRateLimiter;
         this.notifier = notifier;
         this.analytics = analytics;
         this.nhcx = nhcx;
@@ -94,6 +104,15 @@ public class SettingsService {
                         aiDetector.isAvailable()
                                 ? aiDetector.name()
                                 : "No detector is wired in, so this signal never fires."),
+                new CapabilityResponse("queue", "Extraction queue", queue instanceof QStashExtractionQueue,
+                        queue instanceof QStashExtractionQueue
+                                ? "Upstash QStash"
+                                : "Set QSTASH_TOKEN, the QStash signing keys and API_PUBLIC_URL to queue durably."),
+                new CapabilityResponse("rateLimit", "Shared upload rate limit",
+                        uploadRateLimiter instanceof RedisRateLimiter,
+                        uploadRateLimiter instanceof RedisRateLimiter
+                                ? "Upstash Redis"
+                                : "Set UPSTASH_REDIS_REST_URL and its token to share limits across instances."),
                 new CapabilityResponse("notifications", "Review notifications", notifier.isAvailable(),
                         notifier.isAvailable()
                                 ? "Resend"
